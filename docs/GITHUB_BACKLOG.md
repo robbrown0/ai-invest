@@ -8,7 +8,7 @@ Every issue includes problem, scope, acceptance criteria, security consideration
 
 | Epic | GitHub issue | Conceptual milestone | Dependencies |
 | --- | --- | --- | --- |
-| V0-01 | [#1: Qualify PodFlix storage, Percona TDE and OpenBao recovery](https://github.com/robbrown0/ai-invest/issues/1) | M1 Foundations | Design Gate 1 approval |
+| V0-01 | [#1: Qualify local Ubuntu development storage, Percona TDE and OpenBao recovery](https://github.com/robbrown0/ai-invest/issues/1) | M1 Foundations | Design Gate 1 approval |
 | V0-02 | [#2: Build identity, membership and tenant isolation foundation](https://github.com/robbrown0/ai-invest/issues/2) | M1 Foundations | [#1](https://github.com/robbrown0/ai-invest/issues/1) |
 | V0-03 | [#3: Build licensed market-data ingestion and point-in-time evidence](https://github.com/robbrown0/ai-invest/issues/3) | M2 Data and ledger | [#1](https://github.com/robbrown0/ai-invest/issues/1), [#2](https://github.com/robbrown0/ai-invest/issues/2) |
 | V0-04 | [#4: Build portfolio ledger and deterministic broker simulator](https://github.com/robbrown0/ai-invest/issues/4) | M2 Data and ledger | [#1](https://github.com/robbrown0/ai-invest/issues/1), [#2](https://github.com/robbrown0/ai-invest/issues/2) |

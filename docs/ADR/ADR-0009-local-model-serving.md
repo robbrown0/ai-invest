@@ -10,7 +10,7 @@ DRAFT — proposed for Design Gate 1; not ACCEPTED.
 
 ## Context
 
-8 GB VRAM on a shared RTX 2070 Super limits concurrent contexts and model size; overnight CPU offload is acceptable.
+8 GB VRAM on a shared NVIDIA GPU limits concurrent contexts and model size; overnight CPU offload is acceptable.
 
 ## Decision
 

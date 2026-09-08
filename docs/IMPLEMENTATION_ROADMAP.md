@@ -21,7 +21,7 @@ M3 parts can be built against the simulator before paper credentials are provisi
 
 ## First implementation task after approval
 
-Start V0-01 with a non-sensitive qualification plan and exact version matrix. Measure PodFlix resources and evaluate encrypted local storage without disrupting existing services. Prove OpenBao cold start/unseal, TDE scope and backup/key recovery with synthetic data before data ingestion or brokerage connectivity. This is a feasibility gate, not authorization to install anything during Phase 2.
+Start V0-01 with a non-sensitive qualification plan and exact version matrix. Measure available development-host resources and evaluate encrypted local storage without disrupting existing services. Prove OpenBao cold start/unseal, TDE scope and backup/key recovery with synthetic data before data ingestion or brokerage connectivity. This is a feasibility gate, not authorization to install anything during Phase 2.
 
 Do not select model weights on reputation or commit to a frontend/backend framework before tiny targeted spikes establish maintainability. Do not let identity-provider migrations silently create unencrypted tables. Do not allocate shared-host GPU/IO to research before critical services have reserved capacity.
 

@@ -6,7 +6,7 @@
 
 ## V0 spending boundary
 
-PodFlix already runs continuously. Existing local CPU/RAM/GPU use is treated as no meaningful incremental financial cost for this experiment, while resource utilization is measured for feasibility and interference. This accounting convention is explicit and does not claim electricity, hardware or operator time are universally free. V0 requires no cloud database/KMS, hosted observability, paid data feed or continuous paid LLM API.
+The local Ubuntu development host already runs continuously. Existing local CPU/RAM/GPU use is treated as no meaningful incremental financial cost for this experiment, while resource utilization is measured for feasibility and interference. This accounting convention is explicit and does not claim electricity, hardware or operator time are universally free. V0 requires no cloud database/KMS, hosted observability, paid data feed or continuous paid LLM API.
 
 | Category | Initial approach | Financial treatment / failure behavior |
 | --- | --- | --- |

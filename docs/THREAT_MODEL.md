@@ -8,7 +8,7 @@
 
 Use STRIDE: spoofing (S), tampering (T), repudiation (R), information disclosure (I), denial of service (D), and elevation of privilege (E). Review each flow and trust boundary in [security architecture](SECURITY_ARCHITECTURE.md), then add financial consistency and experimental-validity hazards that do not fit neatly into STRIDE. [Microsoft STRIDE reference](https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats)
 
-Scope is private-access V0 on shared PodFlix: human/browser, identity provider, modular control application, ingestion/evidence, local inference, deterministic risk, execution, PostgreSQL, OpenBao, broker PAPER, optional NAS and operator/repository supply chain. No real funds, live authority, service deployment or exploit execution occurs during this phase.
+Scope is private-access V0 on the shared local Ubuntu development host: human/browser, identity provider, modular control application, ingestion/evidence, local inference, deterministic risk, execution, PostgreSQL, OpenBao, broker PAPER, optional NAS and operator/repository supply chain. No real funds, live authority, service deployment or exploit execution occurs during this phase.
 
 Actors include an unauthenticated Internet attacker; malicious/compromised tenant; stolen-session holder; malicious document/data publisher; manipulated or faulty model; compromised research/frontend/execution container; malicious dependency/model artifact; careless or compromised administrator; and failing host/network/provider. Natural outages are modeled alongside hostile actions because both can cause ambiguous financial state.
 
@@ -16,7 +16,7 @@ Assets are tenant confidentiality, secret/key material, paper execution authorit
 
 ## Assumptions to falsify
 
-1. PodFlix host root and Docker administration remain trusted. Containers cannot enforce separation against root; shared unrelated workloads expand attack surface.
+1. Development-host root and Docker administration remain trusted. Containers cannot enforce separation against root; shared unrelated workloads expand attack surface.
 2. A dedicated PAPER credential can be verified without live endpoint access, and PAPER endpoints cannot be redirected to live destinations.
 3. The chosen database role/context design can prove tenant authority independently of arbitrary application tenant settings.
 4. TDE, encrypted local volumes, key custody and compatible backups can be operated and restored within the proposed targets.
@@ -78,7 +78,7 @@ OWASP describes both indirect prompt injection and limitations of model-based gu
 
 ## Top ten unresolved risk themes
 
-1. Shared PodFlix root and unrelated workloads remain a common compromise domain.
+1. Root access on the shared development host and unrelated workloads remain a common compromise domain.
 2. Tenant RLS can be ineffective against a compromised shared role unless authority is independently bound.
 3. TDE residual plaintext, version-sensitive WAL tooling and lost-key recovery may invalidate backup assumptions.
 4. Broker timeout/retry and stop races can create duplicates or unexpected in-flight fills.

@@ -15,7 +15,7 @@
 
 ### Assumptions that may be wrong
 
-The operator can maintain isolated identities/networks on PodFlix; one database handles both research and financial IO comfortably; paper brokerage supports the chosen safe fractional order form; local IdP persistence works with qualified encrypted tables.
+The operator can maintain isolated identities/networks on the local Ubuntu development host; one database handles both research and financial IO comfortably; paper brokerage supports the chosen safe fractional order form; local IdP persistence works with qualified encrypted tables.
 
 ### Failure modes
 
@@ -45,7 +45,7 @@ SRE preferred fewer processes including in-process risk. Security requires a sep
 
 ### Assumptions that may be wrong
 
-CPU/RAM availability under normal PodFlix load; free local disk can support encrypted backups; owner has separately protected recovery material; operator can meet proposed four-hour restore target.
+CPU/RAM availability under normal development-host load; free local disk can support encrypted backups; owner has separately protected recovery material; operator can meet proposed four-hour restore target.
 
 ### Failure modes
 
@@ -75,7 +75,7 @@ Product wants continuous monitoring, security wants manual unseal and fail-close
 
 ### Assumptions that may be wrong
 
-Meaningful point-in-time historical evidence is freely available; synthetic broker fault behavior covers real responses; intended coverage gates are enforceable on current GitHub private-repo plan.
+Meaningful point-in-time historical evidence is freely available; synthetic broker fault behavior covers real responses; intended coverage gates will actually be configured and enforced on the public source repository. Branch/push protections now exist, but CI status checks and independent-review approval counts are not yet enforced.
 
 ### Failure modes
 

@@ -8,7 +8,7 @@
 
 ## Recommendation to the product owner
 
-Review a modular core application with separated ingestion/inference, deterministic risk and PAPER execution processes on PodFlix. Use tenant-aware PostgreSQL with mandatory qualified Percona pg_tde, supplemental encrypted local storage and separately managed OpenBao keys. Prefer local OIDC identity, PostgreSQL jobs/outbox and one bounded local inference queue. Keep NAS asynchronous and outside the financial path. All ten ADRs remain DRAFT.
+Review a modular core application with separated ingestion/inference, deterministic risk and PAPER execution processes on the local Ubuntu development host. Use tenant-aware PostgreSQL with mandatory qualified Percona pg_tde, supplemental encrypted local storage and separately managed OpenBao keys. Prefer local OIDC identity, PostgreSQL jobs/outbox and one bounded local inference queue. Keep NAS asynchronous and outside the financial path. All ten ADRs remain DRAFT.
 
 V0 measures $100–$300 simulated portfolios using matched quantitative, local-AI, optional frontier and passive benchmark arms. Model output and manual frontier imports remain advice. P0 submission is human-triggered; a fresh deterministic approval follows that intent. BACKTEST/SHADOW cannot submit. No live adapter, credential provisioning, mode promotion, public SaaS or billing is authorized.
 
@@ -59,7 +59,7 @@ FIN-06's combined accounting fixture is now explicit in TEST_STRATEGY: $200 virt
 | 5 | Could ambiguity/duplicates create duplicate trades? | Persist one intent and stable identity; never resend admitted/UNKNOWN work because lease expired. Read reconciliation and reservations hold the account. Simulated paused-worker, lost-response and restart tests are mandatory; no distributed exactly-once claim. |
 | 6 | Can financial actions be reconstructed? | Required chain covers actor/authority, evidence availability, versions, proposal, risk, intent, broker observations, unique fills/corrections and costs. Licensed evidence retention and independent audit anchors must qualify; local hash chain alone cannot resist host root. |
 | 7 | Are costs unnecessary? | No required paid infrastructure, KMS, telemetry, model API or data subscription. Optional manual subscription use is separately allocated. Small capital makes even modest external costs material; no automatic paid fallback. |
-| 8 | Can it run on PodFlix? | Design is sized for one bounded local model queue, local DB and a small set of services, but host free resources/GPU/IO/encryption were not inventoried. Qualification must prove fit and protect existing workloads. |
+| 8 | Can it run on the local Ubuntu development host? | Design is sized for one bounded local model queue, local DB and a small set of services, but host free resources/GPU/IO/encryption were not inventoried. Qualification must prove fit and protect existing workloads. |
 | 9 | Can it support commercial multi-tenancy later? | Ownership and provider boundaries avoid single-user redesign. Commercial deployment still requires privileged isolation, availability, retention, legal and support controls; it is not a free configuration change. |
 | 10 | Does it test AI value rather than assume it? | Matched A/B/C/D arms, frozen protocols, rejected/HOLD ideas, costs, forward predictions, uncertainty and ablations permit falsification. No durable-edge claim from a brief pilot; missing history and training contamination are disclosed. |
 | 11 | Are numerical and language tasks separated? | Code/statistics handle arithmetic, eligibility, signals, sizing, risk and performance; LLMs interpret evidence, challenge theses and synthesize under governed schemas. Roles sharing a model are not independent votes. |
@@ -71,7 +71,7 @@ FIN-06's combined accounting fixture is now explicit in TEST_STRATEGY: $200 virt
 
 | Rank | Risk | Proposed mitigation / unresolved consequence |
 | --- | --- | --- |
-| 1 | Shared PodFlix host root or dependency/GPU compromise defeats local isolation | Minimal privileges/segmentation/scanning; single-host residual requires owner acceptance for paper and new deployment review for outside customers/live |
+| 1 | Shared development host root or dependency/GPU compromise defeats local isolation | Minimal privileges/segmentation/scanning; single-host residual requires owner acceptance for paper and new deployment review for outside customers/live |
 | 2 | Tenant context spoofing or privileged RLS bypass | DB-boundary capability/role-pool qualification, FORCE RLS and two-tenant tests; trusted issuer/DBA compromise remains |
 | 3 | Ambiguous broker send, stale worker or stop race creates unexpected orders | Single admitted attempt, reservations, UNKNOWN/reconciliation, stopped recovery; accepted orders may fill after stop |
 | 4 | Stolen execution credential bypasses in-app risk outside the platform | PAPER-only custody, no model exposure, isolated execution, broker revocation/reconciliation; future live token theft is a separate control problem |
@@ -80,7 +80,7 @@ FIN-06's combined accounting fixture is now explicit in TEST_STRATEGY: $200 virt
 | 7 | Free-data coverage/licensing/freshness and fractional broker constraints make V0 unusable | Capability/source-rights/rejection-rate qualification; use HOLD or simulator, no silent safety relaxation |
 | 8 | Local-only audit anchors and missing licensed source copies defeat reconstruction | Append-only history and independent checkpoints, permitted retained evidence; root rewrite remains residual until stronger archive separation |
 | 9 | Look-ahead, small samples, regime dependence and costs create false AI edge | Forward preregistered comparisons, all outcomes/costs, uncertainty and multiplicity controls; evidence may remain inconclusive for years |
-| 10 | Single-owner review/recovery and shared-host resource pressure conflict with unattended safety | Independent reviewer/custodians, resource budgets, manual P0, later automation gate; unavailable GitHub enforcement remains an operational gap |
+| 10 | Single-owner review/recovery and shared-host resource pressure conflict with unattended safety | Independent reviewer/custodians, resource budgets, manual P0, later automation gate; required CI checks and an independent approval count remain unenforced despite enabled branch/push protections |
 
 Threat catalogue severity is inherent failure impact; these are not reports of exploitable running code. Critical/High implementation findings block release regardless of paper mode.
 
@@ -89,7 +89,7 @@ Threat catalogue severity is inherent failure impact; these are not reports of e
 | ID | Decision required | Proposed direction | Blocks |
 | --- | --- | --- | --- |
 | H-01 | Accept product scope, manual P0 and separated-process architecture | Approve only a synthetic qualification implementation after Design Gate 1 | Starting implementation |
-| H-02 | Accept shared PodFlix exposure and encrypted-storage change boundary | Private access, owner-reviewed host inventory; no disturbance to other services | Deployment qualification |
+| H-02 | Accept the shared local Ubuntu development host exposure and encrypted-storage change boundary | Private access, owner-reviewed host inventory; no disturbance to other services | Deployment qualification |
 | H-03 | Exact Percona/pg_tde/OpenBao/backup/IdP combination and key custody | Pin proven versions; manual unseal; independent recovery copies/custodians; <=15m local RPO, <=4h operator-available RTO targets | Any sensitive data/paper credentials |
 | H-04 | Trusted tenant-context mechanism and identity/recovery provider | Keycloak candidate; independent DB verifier or scoped tenant-role pools; Authentik alternative remains | Tenant storage and authentication release |
 | H-05 | Pilot capital, risk thresholds, ETF exceptions and loss/settlement policy | Review RISK_MODEL candidate numbers; keep no margin/shorts/options/live; measure feasibility | PAPER eligibility |
@@ -98,8 +98,9 @@ Threat catalogue severity is inherent failure impact; these are not reports of e
 | H-08 | External packet disclosure and subscription cost allocation | No PII/secrets/IDs, consented normalized facts; record allocated and marginal costs | Manual frontier exports/comparisons |
 | H-09 | Model candidates/licenses, host resource budgets and release thresholds | Local quantized model benchmark and held-out safety/grounding tests | Model-assisted evaluation release |
 | H-10 | Independent reviewer, operator duties, stop/recovery/incident process | Human security-sensitive review; no self-approved financial releases; fresh-auth re-arm | Broker-connected/unattended PAPER |
-| H-11 | GitHub enforcement limitations and private-repo review discipline | Retain private visibility; manual controlled review until features actually available, no paid upgrade by agent | Release governance |
+| H-11 | Public-source disclosure discipline and independent review/CI gates | Retain public source and private-access/LAN-only application; enabled branch/push protections do not replace independent human review or future CI checks | Release governance |
 | H-12 | Future legal/commercialization/live/billing scope | Qualified service-specific review; all future authority remains unavailable | Outside customers or real money only |
+| H-13 | Source-code licensing | No license introduced; public visibility does not imply permission for reuse; owner must explicitly decide future licensing | License grant / distribution policy |
 
 H-03 through H-10 can be investigated with synthetic qualification work only if H-01 explicitly approves that scope. No unresolved gate acquires a permissive default. Risk/lifecycle/cost/provider decisions cannot be quietly accepted by an implementation agent.
 
@@ -121,7 +122,7 @@ H-03 through H-10 can be investigated with synthetic qualification work only if 
 | Major architecture decisions | [ADR index](ADR/README.md) — 10 DRAFT records, none accepted |
 | Proposed implementation backlog | [IMPLEMENTATION_BACKLOG.md](IMPLEMENTATION_BACKLOG.md), [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md), [GitHub map](GITHUB_BACKLOG.md) — 12 V0 epics |
 | Disagreements, independent review, human decisions | This document and linked review records |
-| No implementation/live authorization | Changes limited to README and Markdown under docs; no services installed or credentials configured |
+| No implementation/live authorization | Changes limited to README, SECURITY.md and Markdown under docs; no services installed or credentials configured |
 
 Package completeness is not human approval. The owner must review the draft PR and explicitly approve/revise the gate; no merge or implementation follows automatically.
 
@@ -129,7 +130,28 @@ Package completeness is not human approval. The owner must review the draft PR a
 
 Validation is documented in [VALIDATION.md](VALIDATION.md). It distinguishes parsing/link/structure/secret checks from unperformed runtime tests. Mermaid parser/render tooling is not installed; diagram syntax receives manual and basic declaration/fence review. No application dependencies or services are installed for validation.
 
-GitHub account remains `robbrown0`; repository visibility was verified PRIVATE. After the owner reported a Pro upgrade, read-only GitHub branch-protection/ruleset queries still returned HTTP 403 requiring GitHub Pro/public visibility. This may be a different product subscription or unreflected entitlement; the exact cause is not established. No public conversion or paid GitHub service was enabled. Existing Dependabot security updates report enabled.
+### Public-source amendment and verified GitHub state — 2026-09-08
+
+GitHub account remains `robbrown0`. The human product owner intentionally made the SOURCE REPOSITORY PUBLIC. This amendment preserves that visibility and supersedes the earlier private-repository entitlement findings. The V0 APPLICATION remains private-access/LAN-only: no deployment, public exposure, implementation or live authority is authorized.
+
+Public source can be copied, forked, indexed and retained indefinitely. Keep tenant/account information, credentials, private host identifiers and operational inventory out of commits, issues, discussions, PRs and artifacts. Treat external contributions as untrusted; do not execute them with secrets or privileged infrastructure access. Current documentation and PR wording generalize unnecessary home-lab identifiers while retaining bare-metal Ubuntu, local SSD financial storage and an NVIDIA GPU with 8 GB VRAM. Historical commits and third-party copies may retain earlier identifiers; no history rewrite is performed.
+
+| Feature | Verified state | Limitation / interpretation |
+| --- | --- | --- |
+| Dependency vulnerability alerts | Enabled; API read succeeds (204) | No dependency manifests exist yet; enablement is not evidence of a dependency audit |
+| Dependabot security updates | Enabled, not paused | No update PRs expected without supported dependencies; no auto-merge configured |
+| Secret scanning | Enabled | Supported provider patterns; not a guarantee that every secret is detectable |
+| Secret push protection | Enabled | Pattern coverage and bypass limitations still require pre-publication checks |
+| Main branch protection | Enabled and enforced for administrators | PR required; force-push/deletion blocked; linear history and resolved conversations required |
+| Required reviewer approvals / CI status checks | Zero approvals; no status checks configured | Intentional documentation-phase configuration, not an authorization/plan blocker; independent human security review still required by AGENTS.md before security-sensitive code release |
+| Private vulnerability reporting | Enabled | Use the private GitHub path in [SECURITY.md](../SECURITY.md); reporting enabled now, policy file will reach the default branch only after an owner-authorized merge |
+| Supplemental generic/non-provider secret patterns | Disabled; enable request succeeds but returned state remains disabled | GitHub documents this as an organization/Secret Protection entitlement feature, unavailable for this personal repository; no authorization error was returned |
+| Optional validity/extended-metadata checks | Validity setting reports disabled | GitHub documents Team/Enterprise Secret Protection eligibility; not a token-authorization failure |
+| Code scanning / CI workflows | Not configured | No application code or supported language target yet; workflow design remains a later phase, not a paid-plan workaround |
+
+Entitlement references: [generic-pattern eligibility](https://docs.github.com/en/code-security/how-tos/secure-your-secrets/detect-secret-leaks/enabling-secret-scanning-for-generic-patterns) and [validity/metadata eligibility](https://docs.github.com/en/code-security/reference/secret-security/supported-secret-scanning-patterns). The authenticated integration can administer this repository and changed all requested core settings without authorization errors. No paid service, subscription or trial was enabled. Classic branch protection satisfies the main-protection requirement; a duplicative ruleset was not added. Repository administrators can still change settings; current settings do not establish immutable governance.
+
+[SECURITY.md](../SECURITY.md) defines responsible private reporting and prohibits real brokerage credentials anywhere on GitHub, including private reports. No license is added. Source licensing remains an explicit future product-owner decision; public visibility does not imply permission for reuse.
 
 The host's filesystem sandbox helper intermittently fails with a loopback permission error. Approved shell-wrapped apply_patch was used for the requested documentation edits. Specialist work resumed after a usage-limit interruption. No credential-bearing output was requested or retained.
 

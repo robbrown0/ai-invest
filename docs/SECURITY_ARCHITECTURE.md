@@ -6,11 +6,13 @@
 
 ## Scope and assumptions
 
-V0 is a private-access experiment on PodFlix. BACKTEST and SHADOW have no broker order path. Only explicitly connected Alpaca PAPER accounts may eventually execute. LIVE_LIMITED and LIVE are future concepts, unavailable capabilities rather than hidden settings: no new URL, credential, database value, import or administrator action may turn V0 into a live client.
+V0 is a private-access experiment on the local Ubuntu development host. BACKTEST and SHADOW have no broker order path. Only explicitly connected Alpaca PAPER accounts may eventually execute. LIVE_LIMITED and LIVE are future concepts, unavailable capabilities rather than hidden settings: no new URL, credential, database value, import or administrator action may turn V0 into a live client.
 
 Propose a modular control application with isolated ingestion, inference, deterministic risk and execution processes. Internet research and model outputs are untrusted. Only execution retrieves brokerage credentials, including credentials used for balance reads when they also permit orders. V0 uses dedicated PAPER credentials, not brokerage OAuth that could authorize live access. Identity-provider OIDC is distinct from broker OAuth.
 
 Models receive an allowlisted financial-fact projection, never account identifiers, personal identity, authentication material or secrets. Asking a model to redact its inputs is not a boundary. These are future implementation requirements. Host root/Docker administrators can compromise all local processes, memory and identities; same-host isolation does not withstand host compromise. Accepting that residual for paper research requires owner review; real funds/outside customers require renewed threat/deployment review.
+
+The source repository is public; the V0 application remains private-access/LAN-only. Publication does not change authentication, network segmentation, tenant isolation or deployment approval requirements. Public contributions and attachments are untrusted: never execute them with secrets, host privileges or broker authority. Review source, issue/PR text and artifacts for confidential data before publication. Follow [SECURITY.md](../SECURITY.md) for private vulnerability reporting; current repository controls and limitations are recorded in [Phase 2 review](PHASE2_REVIEW.md).
 
 ## Trust boundaries
 
@@ -48,7 +50,7 @@ Arrows describe necessary flows, not blanket grants. Recipients authenticate cal
 | Audit writer | Append for authenticated source | Historical update/delete; secret payloads |
 | Backup operator | Encrypted backup/restore through separate procedure | Routine tenant access, automatic trading after restore |
 
-Separate OS/container identities, database roles and service capabilities. Use non-root containers where supported, read-only roots with explicit temporary volumes, dropped capabilities, seccomp/AppArmor, restricted mounts and quotas. No Docker socket/privileged containers. GPU devices belong only to inference. Separate existing PodFlix workloads from project networks/storage; assess existing host exposure before deployment.
+Separate OS/container identities, database roles and service capabilities. Use non-root containers where supported, read-only roots with explicit temporary volumes, dropped capabilities, seccomp/AppArmor, restricted mounts and quotas. No Docker socket/privileged containers. GPU devices belong only to inference. Separate existing workloads on the development host from project networks/storage; assess existing host exposure before deployment.
 
 ## Authentication and authorization
 
@@ -161,4 +163,4 @@ Critical/High findings block release. Review advisories regularly, expedite reac
 
 Before data/PAPER credentials prove TDE/spill/swap coverage, identity bootstrap, OpenBao failure/rotation/recovery, complete restore, tenant authority, egress denial and redacted audit. Before orders prove permit binding, idempotency, stop races, reconciliation and PAPER-only authority. Financial/authorization/tenancy/security/model-safety bugs require regression tests.
 
-Human choices: identity provider, tenant-context enforcement, recovery custody/targets, encrypted PodFlix storage, independent reviewers, future live/commercial isolation/immutable audit. See [threat model](THREAT_MODEL.md), [data design](DATA_ARCHITECTURE.md), [specialist review](reviews/SECURITY_DATA_REVIEW.md).
+Human choices: identity provider, tenant-context enforcement, recovery custody/targets, encrypted local development-host storage, independent reviewers, future live/commercial isolation/immutable audit. See [threat model](THREAT_MODEL.md), [data design](DATA_ARCHITECTURE.md), [specialist review](reviews/SECURITY_DATA_REVIEW.md).

@@ -52,9 +52,9 @@ P0 research and paper dispatch are human-triggered. P1 scheduled automation requ
 
 Every task has tenant/experiment ownership, source snapshot, task version, token/context/time budget, deadline, priority, retry cap and cancellation state. Use per-tenant quotas/fairness, coalesce duplicate events and stop research loops. Reserve resources for database, audit, risk and reconciliation. Missing inference yields unavailable/HOLD, never automatic paid fallback or invented evidence.
 
-## Local serving on PodFlix
+## Local serving on the development host
 
-The project specifies an RTX 2070 Super with 8 GB VRAM. Weights, KV cache, buffers, context and existing GPU users compete for memory; parameter count does not guarantee fit. Benchmark a small quantized model for extraction and roughly 7–8B class quantized candidates for deeper tasks only if headroom permits. Larger CPU/RAM-offloaded candidates are overnight experiments; free RAM and acceptable latency remain unmeasured. No model/version is selected without license, compatibility, provenance and quality review.
+The project specifies an NVIDIA GPU with 8 GB VRAM. Weights, KV cache, buffers, context and existing GPU users compete for memory; parameter count does not guarantee fit. Benchmark a small quantized model for extraction and roughly 7–8B class quantized candidates for deeper tasks only if headroom permits. Larger CPU/RAM-offloaded candidates are overnight experiments; free RAM and acceptable latency remain unmeasured. No model/version is selected without license, compatibility, provenance and quality review.
 
 | Alternative | Benefit | Cost / draft recommendation |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ The project specifies an RTX 2070 Super with 8 GB VRAM. Weights, KV cache, buffe
 
 Ollama documents CPU/GPU placement, parallel-context memory growth and a local-only mode. Pin artifacts and enforce network denial in addition to configuration. [Ollama FAQ](https://docs.ollama.com/faq). llama.cpp supports quantized inference and CPU/GPU hybrid loading; host performance is unverified. [llama.cpp](https://github.com/ggml-org/llama.cpp).
 
-Start with one inference job and one loaded model. Measure citation validity, factual extraction, structured output, abstention, injection resistance, latency, peak RAM/VRAM and PodFlix interference against a deterministic baseline. Retrieve bounded cited passages instead of blindly expanding context. More tokens are not evidence of better investment reasoning.
+Start with one inference job and one loaded model. Measure citation validity, factual extraction, structured output, abstention, injection resistance, latency, peak RAM/VRAM and interference with other host workloads against a deterministic baseline. Retrieve bounded cited passages instead of blindly expanding context. More tokens are not evidence of better investment reasoning.
 
 ## Opportunity memory
 

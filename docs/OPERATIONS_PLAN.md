@@ -5,7 +5,7 @@
 
 ## Host and deployment qualification
 
-PodFlix is an existing shared Ubuntu host, not a dedicated financial appliance. RTX 2070 Super 8 GB VRAM and CPU/RAM availability are owner assumptions, not measured capacity. Inventory listening ports, existing workloads, storage health/capacity, encryption, patches, driver versions, private network access and backup routes after Design Gate 1 approval. Agree maintenance windows with the host owner.
+The local Ubuntu development host is shared with existing workloads, not a dedicated financial appliance. An NVIDIA GPU with 8 GB VRAM and CPU/RAM availability are owner assumptions, not measured capacity. Inventory listening ports, existing workloads, storage health/capacity, encryption, patches, driver versions, private network access and backup routes after Design Gate 1 approval. Agree maintenance windows with the host owner.
 
 Single-host Compose is a deliberate V0 availability limitation. Separate containers reduce privileges but cannot protect secrets from host root/kernel compromise. No claim of SaaS availability or production-grade physical separation. Before outside-customer/live use, revisit dedicated host, stronger isolation, independent key hosting, availability and operator duties.
 
@@ -55,4 +55,4 @@ Break-glass grants are time-limited, reason/ticket-bound, separately authenticat
 
 ## Open decisions
 
-Agree recovery custodians, encrypted disk feasibility without disturbing existing PodFlix services, backup size/retention budget, resource reservations, private access method and a separate disaster-recovery location. No paid infrastructure dependency is introduced by this plan.
+Agree recovery custodians, encrypted disk feasibility without disturbing existing services on the development host, backup size/retention budget, resource reservations, private access method and a separate disaster-recovery location. No paid infrastructure dependency is introduced by this plan.

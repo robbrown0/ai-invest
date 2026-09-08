@@ -11,14 +11,14 @@ The three perspectives below were applied separately to the common design. They 
 ### Top five concerns
 
 1. Shared-role RLS commonly mistakes a freely set tenant value for authenticated authority. A compromised application can select a different tenant unless the database boundary independently validates scope or uses distinct tenant credentials.
-2. PodFlix root/Docker administrators and unrelated workloads share the secret-manager, execution and plaintext-memory compromise domain. Container count is not physical separation.
+2. Root/Docker administrators of the local development host and unrelated workloads share the secret-manager, execution and plaintext-memory compromise domain. Container count is not physical separation.
 3. TDE does not cover every on-disk surface; query spills/catalogs and decrypted WAL backup intermediates can defeat broad encryption claims. Key loss can defeat every apparently valid backup.
 4. Single-owner operations cannot offer true dual control, and passkey recovery/secret-zero bootstrap can silently recreate standing privileged secrets.
 5. A stopped application cannot retract broker-accepted/in-flight orders, and a stolen execution credential can trade outside application risk controls.
 
 ### Assumptions that may be wrong
 
-An appropriately scoped PAPER key can be operationally attested without live access; Keycloak and its database/migrations fit the encrypted local platform; an independent human reviewer is available; dedicated encrypted local storage can be added without disrupting PodFlix; operators can maintain separate recovery custody.
+An appropriately scoped PAPER key can be operationally attested without live access; Keycloak and its database/migrations fit the encrypted local platform; an independent human reviewer is available; dedicated encrypted local storage can be added without disrupting the local Ubuntu development host; operators can maintain separate recovery custody.
 
 ### Failure modes
 
@@ -118,4 +118,4 @@ PostgreSQL RLS does not constrain superusers/BYPASSRLS, nor authenticate arbitra
 
 ## Remaining approval questions
 
-Human ownership is required for recovery custodians/targets, private-access method, independent reviewers, encrypted volume changes on shared PodFlix, and eventual live/commercial isolation. Technical spikes must select a demonstrable tenant-context mechanism and compatible TDE/identity/backup versions. None of those decisions is silently resolved by this virtual review, and no production code, credentials or services were added.
+Human ownership is required for recovery custodians/targets, private-access method, independent reviewers, encrypted volume changes on the shared local Ubuntu development host, and eventual live/commercial isolation. Technical spikes must select a demonstrable tenant-context mechanism and compatible TDE/identity/backup versions. None of those decisions is silently resolved by this virtual review, and no production code, credentials or services were added.

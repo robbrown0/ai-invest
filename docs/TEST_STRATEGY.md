@@ -59,7 +59,7 @@ Default fixtures are generated synthetic data with fictional internal tenant ide
 | ADV-23 | No-live invariant | Every enum, forged endpoint, OAuth mixed grant, redirect, config/migration/job/import path fails to create real broker authority |
 | ADV-24 | Audit tampering | Alter/remove/reorder event and archive anchor; detector alerts; DB root compromise residual explicitly acknowledged |
 
-Use scoped DAST/fuzzing only in disposable test environments with fictitious accounts; no attacks against public providers or other PodFlix services. Test network policy from inside containers, not just mocked authorization functions.
+Use scoped DAST/fuzzing only in disposable test environments with fictitious accounts; no attacks against public providers or other services on the development host. Test network policy from inside containers, not just mocked authorization functions.
 
 ## Threat-to-test and issue ownership
 
@@ -103,7 +103,7 @@ G3 restricted PAPER trial: human-provisioned PAPER credentials, contract tests, 
 
 G4 continued paper/shadow research: evaluation across market regimes, model-change gates, drift tests and periodic restore drills. This is not automatic permission for live trading or commercialization.
 
-The private GitHub repository currently lacks enforced branch protection/secret push protection under its plan. Future CI can publish required evidence but cannot claim to be an enforced merge gate. Owner-controlled merge discipline and independent review are interim measures; do not purchase an upgrade or create workflows in this phase.
+The source repository is now public; the application remains private-access/LAN-only. GitHub secret scanning/push protection and main branch protection are enabled. Main requires a pull request, disallows force-push/deletion, requires linear history and resolved conversations, and applies protections to administrators. Required approvals are zero for the current single-owner documentation workflow; this does not satisfy independent security-sensitive review. No CI workflows or required status checks exist yet: future CI gates must be designed and explicitly configured, not assumed enforced. See [current settings and limitations](PHASE2_REVIEW.md). Do not purchase an upgrade or create workflows in this phase.
 
 ## Acceptance thresholds
 

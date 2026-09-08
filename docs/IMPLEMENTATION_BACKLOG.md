@@ -5,7 +5,7 @@
 
 All issues are initially P0 and grouped into conceptual milestones. P1/P2/Future requirements remain a roadmap, not hundreds of speculative tickets. Dependencies refer to stable V0 IDs; [GITHUB_BACKLOG.md](GITHUB_BACKLOG.md) will map them to created GitHub issues after documentation stabilizes. Nothing in this backlog authorizes live trading.
 
-## V0-01: Qualify PodFlix storage, Percona TDE and OpenBao recovery
+## V0-01: Qualify local Ubuntu development storage, Percona TDE and OpenBao recovery
 
 **Milestone:** M1 Foundations
 **Priority:** P0
@@ -41,7 +41,7 @@ Explicit Design Gate 1 approval; unresolved qualification decisions in PHASE2_RE
 
 ### Out of Scope
 
-Application features, brokerage credentials, live access, HA cluster, other PodFlix service changes.
+Application features, brokerage credentials, live access, HA cluster, changes to other services on the development host.
 
 ## V0-02: Build identity, membership and tenant isolation foundation
 

@@ -8,7 +8,7 @@
 
 Choose **B: a modular application with security-sensitive components in dedicated processes/services**. Product modules share a codebase and transactional database; research ingestion, local inference, deterministic risk, and brokerage execution have distinct runtime identities and privileges. Logical research specialists are versioned roles, not individually deployed microservices.
 
-V0 is a LAN/private-access experimental system on PodFlix. PAPER is the only external trading environment. BACKTEST and SHADOW label non-executing evaluation contexts; neither can submit broker orders. LIVE_LIMITED and LIVE exist only in future design vocabulary, with no V0 route, adapter, endpoint selection, credential grant, migration, or promotion action. Human approval of Design Gate 1 alone does not authorize real-money capability.
+The source repository is public; this does not authorize public application exposure. V0 is a LAN/private-access experimental system on the local Ubuntu development host. PAPER is the only external trading environment. BACKTEST and SHADOW label non-executing evaluation contexts; neither can submit broker orders. LIVE_LIMITED and LIVE exist only in future design vocabulary, with no V0 route, adapter, endpoint selection, credential grant, migration, or promotion action. Human approval of Design Gate 1 alone does not authorize real-money capability.
 
 A small simulated economic portfolio of $100–$300 sits behind a virtual capital cap even if the paper broker reports larger buying power. No single-tenant shortcuts, payments, paid inference requirement, Kubernetes, active-active database, or public registration in V0.
 
@@ -89,7 +89,7 @@ The database is authoritative for jobs; notifications are hints. Jobs carry sche
 
 ## Deployment and resource budget
 
-Assume Ubuntu, Docker Compose, RTX 2070 Super 8 GB VRAM and shared PodFlix workloads as supplied by the owner; no hardware or service inventory was performed in this phase. Before deployment measure free disk, disk encryption feasibility, RAM, GPU contention, backups, driver compatibility and existing network exposure. Do not reconfigure the host's other services implicitly.
+Assume Ubuntu, Docker Compose, an NVIDIA GPU with 8 GB VRAM and shared development-host workloads as supplied by the owner; no hardware or service inventory was performed in this phase. Before deployment measure free disk, disk encryption feasibility, RAM, GPU contention, backups, driver compatibility and existing network exposure. Do not reconfigure the host's other services implicitly.
 
 Plan distinct edge/control, research-egress, financial, and management networks with host firewall egress enforcement. Publish only TLS edge to approved private clients; bind database, OpenBao, model and admin listeners internally. Compose networks alone do not authenticate services or provide strong containment from a compromised host. GPU access belongs only to inference. Docker socket, host PID/network namespaces, privileged containers and broad host mounts are prohibited in application workloads. [Docker security model](https://docs.docker.com/engine/security/).
 

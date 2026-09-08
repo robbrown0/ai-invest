@@ -6,7 +6,7 @@
 
 ## Boundary and source use
 
-V0 is a private, experimental paper/shadow/backtest research system. This document does not determine whether any law applies or whether an exemption exists. It does not authorize advice to outside customers, live automated trading, fees or distribution of market data. Ordinary internal paper research may proceed after human design approval while commercialization questions remain open; applicable provider terms and data-use permissions still matter in V0.
+V0 is a private-access/LAN-only, experimental paper/shadow/backtest research application; its source repository is public. Source-code licensing remains a separate, explicit future product-owner decision. No software license is introduced, and public visibility does not imply permission for reuse. This document does not determine whether any law applies or whether an exemption exists. It does not authorize advice to outside customers, live automated trading, fees or distribution of market data. Ordinary internal paper research may proceed after human design approval while commercialization questions remain open; applicable provider terms and data-use permissions still matter in V0.
 
 US federal primary sources below establish questions, not a complete jurisdictional analysis. Future users, entity formation, location, marketing, advice, control over accounts and compensation may change the analysis. State securities/privacy law and non-US requirements require qualified assessment when actual plans are known. Sources were consulted for this design on 2026-09-08; counsel must verify then-current rules and facts before a gated activity.
 

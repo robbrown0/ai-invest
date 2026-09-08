@@ -65,11 +65,11 @@ Out of V0: live broker onboarding, transfers/withdrawals, margin use, shorting, 
 
 ## Operating and economic assumptions
 
-PodFlix is a continuously running bare-metal Ubuntu host with an RTX 2070 Super (8 GB VRAM). CPU/RAM and overnight offload are available in principle; actual free RAM, disk, GPU support, and interference with existing workloads must be measured before model selection. Local compute is not a meaningful incremental experimental expense; capacity and operator effort are still recorded. Containers do not make a shared host highly available or immune to host compromise.
+The local development host runs bare-metal Ubuntu continuously and has an NVIDIA GPU with 8 GB VRAM. CPU/RAM and overnight offload are available in principle; actual free RAM, disk, GPU support, and interference with existing workloads must be measured before model selection. Local compute is not a meaningful incremental experimental expense; capacity and operator effort are still recorded. Containers do not make a shared host highly available or immune to host compromise.
 
 Required recurring external infrastructure/inference cost target: approximately $0. Prefer local PostgreSQL with required TDE, OpenBao, local inference/monitoring, and free paper/data services with entitlement checks. Optional paid adapters are disabled by default with no automatic upgrades. A pre-existing premium chat subscription is not free intelligence: record attributable subscription allocation and human review time separately from marginal API bills.
 
-The two Synology NAS devices may hold encrypted backups/archives. Primary database, execution state, active keys, and current audit writes remain local. NAS outage must not stop ordinary local operation. Local disk exhaustion from archive backlog must trigger a visible safe stop before audit loss.
+Two network-attached storage (NAS) devices may hold encrypted backups/archives. Primary database, execution state, active keys, and current audit writes remain local. NAS outage must not stop ordinary local operation. Local disk exhaustion from archive backlog must trigger a visible safe stop before audit loss.
 
 ## Success measures
 

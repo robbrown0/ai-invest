@@ -6,7 +6,11 @@ The repository contains design documents and bootstrap placeholders only. **Phas
 
 The goal is to test whether quantitative methods, local AI and optional frontier research improve risk-adjusted results after externally billed costs. No investment return or AI outperformance is promised. Initial experiments use $100–$300 simulated capital; PAPER is the only permitted external trading mode. BACKTEST/SHADOW do not submit orders, and no real-money functionality exists here.
 
-Proposed deployment is containerized services on the existing bare-metal Ubuntu PodFlix host, with local PostgreSQL TDE/OpenBao and local inference. Primary financial storage stays local; NAS is optional encrypted archive. The target is approximately zero recurring external infrastructure cost.
+Proposed deployment is containerized services on the local bare-metal Ubuntu development host, with local PostgreSQL TDE/OpenBao and local inference. Primary financial storage stays local; NAS is optional encrypted archive. The target is approximately zero recurring external infrastructure cost.
+
+The SOURCE REPOSITORY is public by product-owner decision. The V0 APPLICATION remains private-access/LAN-only; public source does not authorize public endpoints, onboarding or application exposure. Do not publish deployment inventory, private addresses, tenant data or credentials.
+
+Report vulnerabilities through the private path in [SECURITY.md](SECURITY.md), not public issues. No software license is introduced: licensing remains an explicit future product-owner decision, and public visibility does not imply permission for reuse.
 
 Start with [AGENTS.md](AGENTS.md), then:
 
