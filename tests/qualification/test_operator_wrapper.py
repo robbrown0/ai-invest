@@ -245,7 +245,7 @@ class OutputTests(unittest.TestCase):
 
 class FlowTests(unittest.TestCase):
     def exercise(self, args=(), plan_pass=True, scoped=False, scope_code=0, save_error=False,
-                 candidate=None, guard_failure=None):
+                 candidate=None, guard_failure=None, guard_effect=None):
         reports = []
         stream = io.StringIO()
         with ExitStack() as stack:
@@ -262,7 +262,8 @@ class FlowTests(unittest.TestCase):
             for name in ('require_console', 'require_host', 'require_operator_identity',
                          'require_operator_environment', 'require_console_session'):
                 stack.enter_context(patch.object(WRAPPER, name,
-                    side_effect=OSError('SYNTHETIC_PRIVATE_DETAIL') if guard_failure == name else None))
+                    side_effect=(guard_effect if guard_effect is not None else OSError('SYNTHETIC_PRIVATE_DETAIL'))
+                    if guard_failure == name else None))
             stack.enter_context(patch.object(WRAPPER, 'create_result', return_value=100))
             stack.enter_context(patch.object(WRAPPER, 'open_scoped_result', return_value=100))
             stack.enter_context(patch.object(WRAPPER, 'trusted_helper', return_value=b'checked'))

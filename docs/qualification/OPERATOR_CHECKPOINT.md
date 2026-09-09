@@ -1,5 +1,11 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
+## Current checkpoint: environment predicate refinement
+
+The human has now installed the previous policy and reached `operator_environment` at the physical console. Follow the **[current guarded upgrade and short console command](ENVIRONMENT_DIAGNOSTICS.md)**. That document preserves the old pair, updates the executable digest, and reports only a fixed first-failing environment predicate. No accepted environment is widened. Gate 2 and both authorization flags remain false/unpassed. All installation/rollback blocks below are historical and superseded; do not rerun their absent-policy assumptions.
+
+## Historical command-specific installation record
+
 **Current status:** Confirmed sudo PTY trust-boundary failure; proposed correction is NON-SECRET ONLY. Gate 2 NOT PASSED. Neither host policy nor wrapper upgrade below has been installed by agents.
 
 Read [the confirmed evidence, alternatives and limitations](CONSOLE_TRUST_BOUNDARY.md) and [independent review](CONSOLE_BOUNDARY_REVIEW.md). The owner confirmed `/dev/tty3` before sudo and `/dev/pts/3` through sudo. The previous `tty_identity` refusal was correct. The historical instructions later in this file are retained for audit, **not for reuse**.

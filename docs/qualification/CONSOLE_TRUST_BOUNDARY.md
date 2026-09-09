@@ -1,5 +1,7 @@
 # Physical Console Trust Boundary — Non-Secret Qualification
 
+**Subsequent human evidence:** The owner installed this policy and the next physical-console run reached `operator_environment`. The original source-level evidence below remains historical. See [the current bounded environment refinement](ENVIRONMENT_DIAGNOSTICS.md); no failing subpredicate or downstream runtime success has yet been established.
+
 **Status:** Proposed host policy; NOT INSTALLED by agents; Gate 2 NOT PASSED.
 **Date:** 2026-09-09. **Scope:** Synthetic metadata only, no secret-input path or bootstrap.
 

@@ -2,6 +2,8 @@
 
 ## Current checkpoint after subsequent owner approval
 
+The latest human-installed physical-console run passed the earlier TTY boundary and stopped at `operator_environment`. The **[bounded environment refinement](ENVIRONMENT_DIAGNOSTICS.md)** adds fixed subpredicate diagnostics without changing acceptance. The actual failed subpredicate remains unknown pending the next human-only upgrade/run. Prior statements below describe their historical checkpoints. No runtime swap/crash/secret-entry authorization follows from this progress.
+
 The owner has now confirmed physical `/dev/tty3` becoming `/dev/pts/3` through sudo, explaining the later `tty_identity` diagnostic. See [the trust-boundary correction](CONSOLE_TRUST_BOUNDARY.md) and [current human-only checkpoint](OPERATOR_CHECKPOINT.md). A digest-pinned, exact-command sudo exception is proposed, not installed by agents. Prior failures below are historical evidence, not rewritten successes. Actual replacement-path, no-swap, crash and canary qualification remain outstanding; both authorization flags stay false.
 
 ### Previous diagnostic amendment (historical)

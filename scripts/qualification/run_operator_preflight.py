@@ -40,6 +40,11 @@ OP_BOOL = {'root_operator', 'direct_virtual_console', 'cpu_limit_bounded', 'core
            'core_hard_zero', 'mount_namespace_differs_from_visible_pid1',
            'pid_namespace_matches_visible_pid1', 'reviewed_apport_handler', 'reviewed_core_pattern'}
 OP_LIMIT = {'memory_max', 'memory_swap_max', 'memory_swap_current', 'pids_max'}
+ENVIRONMENT_CHECKS = frozenset({
+    'environment_keyset', 'environment_path', 'environment_locale', 'environment_term',
+    'environment_home', 'environment_user', 'environment_logname', 'environment_mail',
+    'environment_shell', 'environment_sudo_gid',
+})
 DIAGNOSTIC_CHECKS = frozenset({
     'cgroup_membership', 'memory_max', 'memory_swap_max', 'memory_swap_current',
     'pids_max', 'cpu_max', 'rlimit_core', 'tty_identity', 'mount_namespace',
@@ -47,11 +52,30 @@ DIAGNOSTIC_CHECKS = frozenset({
     'operator_evaluation', 'arguments', 'result_file', 'helper_integrity',
     'host_context', 'plan_preflight', 'scope_launch', 'report_validation', 'result_publication',
     'operator_identity', 'operator_environment', 'console_session',
-})
+}) | ENVIRONMENT_CHECKS
 
 
 class Rejected(Exception):
     """Only fixed diagnostics may be emitted by the caller."""
+
+
+class EnvironmentRejected(Rejected):
+    """Carries one validated symbolic predicate, never environment data."""
+
+    def __init__(self, check):
+        if type(check) is not str or check not in ENVIRONMENT_CHECKS:
+            raise Rejected()
+        super().__init__()
+        self.check = check
+
+
+def environment_require(check, predicate):
+    try:
+        passed = predicate()
+    except Exception:
+        raise EnvironmentRejected(check) from None
+    if not passed:
+        raise EnvironmentRejected(check)
 
 
 def require(condition):
@@ -173,15 +197,19 @@ def require_operator_identity():
 def require_operator_environment():
     allowed = set(CLEAN_ENV) | {'TERM', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'MAIL',
                                 'SUDO_UID', 'SUDO_GID', 'SUDO_USER', 'SUDO_COMMAND'}
-    require(set(os.environ) <= allowed)
-    require(os.environ.get('PATH') == CLEAN_ENV['PATH'])
+    environment_require('environment_keyset', lambda: set(os.environ) <= allowed)
+    environment_require('environment_path', lambda: os.environ.get('PATH') == CLEAN_ENV['PATH'])
     for key in ('LANG', 'LC_ALL', 'TERM'):
-        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}', os.environ.get(key, '')) is not None)
+        environment_require('environment_term' if key == 'TERM' else 'environment_locale',
+                            lambda: re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}', os.environ.get(key, '')) is not None)
     for key, value in {'HOME': '/root', 'USER': 'root', 'LOGNAME': 'root',
                        'MAIL': '/var/mail/root'}.items():
-        require(key not in os.environ or os.environ[key] == value)
-    require(os.environ.get('SHELL', '/bin/bash') in ('/bin/bash', '/usr/bin/bash'))
-    require(os.environ.get('SUDO_GID') == str(pwd.getpwuid(OPERATOR_UID).pw_gid))
+        environment_require('environment_' + key.lower(),
+                            lambda: key not in os.environ or os.environ[key] == value)
+    environment_require('environment_shell',
+                        lambda: os.environ.get('SHELL', '/bin/bash') in ('/bin/bash', '/usr/bin/bash'))
+    environment_require('environment_sudo_gid',
+                        lambda: os.environ.get('SUDO_GID') == str(pwd.getpwuid(OPERATOR_UID).pw_gid))
 
 
 def session_ok(output, tty):
@@ -386,7 +414,11 @@ def main():
         stage = 'result_publication'
         save_result(fd, report, publish=not scoped)
         return 0 if report['checks_passed'] else 1
-    except Exception:
+    except Exception as error:
+        if diagnostic and stage == 'operator_environment' and isinstance(error, EnvironmentRejected):
+            # Only a fixed predicate can refine this one boundary. No exception text.
+            if type(error.check) is str and error.check in ENVIRONMENT_CHECKS:
+                stage = error.check
         saved = False
         if fd is not None:
             try:
