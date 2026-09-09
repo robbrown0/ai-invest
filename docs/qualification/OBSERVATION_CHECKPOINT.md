@@ -1,5 +1,7 @@
 # Human Checkpoint — Bounded Collector/Logging Observation
 
+**Historical checkpoint, superseded:** The owner tested this observer at 531671a5e6e3bf8c7efc3bddb899c53d53cd1c27; observation remained incomplete. Its result and guarded block remain evidence, not current installation instructions. Use [the log-source correction checkpoint](LOG_SOURCE_CHECKPOINT.md) and [recorded mismatch](LOG_SOURCE_QUALIFICATION.md) for the next run.
+
 **Status:** Prepared, NOT installed/run by agents. Gate 2 NOT PASSED.
 
 Read [the exact scope, matrix and historical trial](OBSERVATION_QUALIFICATION.md) and [independent review](OBSERVATION_REVIEW.md) before installation. This supersedes the next-run instructions in CRASH_CHECKPOINT.md, whose old bytes/results remain historical evidence.

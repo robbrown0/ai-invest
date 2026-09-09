@@ -1,5 +1,7 @@
 # Bounded Crash Observation — Qualification Amendment
 
+**Subsequent human evidence:** At commit 531671a5e6e3bf8c7efc3bddb899c53d53cd1c27, local crash checks passed but all five observer categories remained NOT_TESTED. Supplied /var/log metadata proves a policy mismatch, without proving first-failure order or journal access. See [the focused read-only correction and setup gate](LOG_SOURCE_QUALIFICATION.md) and [current checkpoint](LOG_SOURCE_CHECKPOINT.md). The NOT-run/prepared wording and results below record the original handoff; they are preserved as history.
+
 **Status:** NON-SECRET checkpoint prepared; new observer has NOT run on the host. Gate 2 NOT PASSED. Both authorization flags remain false.
 
 ## Historical human evidence (one trial)

@@ -26,7 +26,8 @@ class ExitDouble(BaseException):
 
 class CrashTests(unittest.TestCase):
     def simulated_trial(self, *, status=signal.SIGABRT, protection_error=None,
-                        wait_error=None, read_value=b'INERT_METADATA', cleanup=True, fork_result=123):
+                        wait_error=None, read_value=b'INERT_METADATA', cleanup=True, fork_result=123,
+                        setup_failure=None):
         events, writes = [], []
         sentinel = bytes([147]) * 32  # Inert fixture, NOT a generated runtime canary.
         with ExitStack() as stack:
@@ -38,8 +39,12 @@ class CrashTests(unittest.TestCase):
             stack.enter_context(patch.object(H, 'bounded_read', return_value=read_value))
             observer = stack.enter_context(patch.object(H, 'Observation'))
             observer.return_value.finish.return_value = {}
+            observer.return_value.setup = dict.fromkeys(H.SETUP_STAGES, 'PASS')
+            observer.return_value.ready = setup_failure is None
+            if setup_failure:
+                observer.return_value.setup[setup_failure] = 'FAIL'
             stack.enter_context(patch.object(H, 'wait_exit'))
-            stack.enter_context(patch.object(H.os, 'fork', return_value=fork_result))
+            stack.enter_context(patch.object(H.os, 'fork', side_effect=lambda: events.append('fork') or fork_result))
             stack.enter_context(patch.object(H.os, 'close', side_effect=lambda fd: events.append('close')))
             stack.enter_context(patch.object(H.os, 'kill', side_effect=lambda *args: events.append('signal')))
             stack.enter_context(patch.object(H.signal, 'signal'))
@@ -264,7 +269,7 @@ class CleanupTests(unittest.TestCase):
 class IntegrationTests(unittest.TestCase):
     def test_harness_pin_and_fixed_result(self):
         self.assertEqual(hashlib.sha256((ROOT / 'scripts/qualification/crash_canary.py').read_bytes()).hexdigest(), W.CRASH_SHA256)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-observation.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-log-source.json')
 
     def test_systemd_warning_removed_reg_sd01(self):
         for diagnostic, crash in ((False, False), (True, False), (True, True)):

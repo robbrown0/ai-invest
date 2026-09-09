@@ -21,8 +21,9 @@ INSTALLED = Path('/usr/local/sbin/ai-invest-operator-preflight')
 LIB = Path('/usr/local/libexec/ai-invest')
 HELPER = LIB / 'operator_preflight.py'
 CRASH_HELPER = LIB / 'crash_canary.py'
-CRASH_SHA256 = '68fc9bcea6fecb98a2436992f3cc13c4a4b582a39ac867d025b5bc0fc3f66927'
-CRASH_RESULT = Path('/var/tmp/ai-invest-crash-observation.json')
+CRASH_SHA256 = '8f981bbf5156bae35309f991eb2239d95b1115fd0bd56c3bb8b50a55eeb87420'
+CRASH_RESULT = Path('/var/tmp/ai-invest-crash-log-source.json')
+CRASH_SETUP_STAGES = ('setup_journal', 'setup_log_directory', 'setup_log_file', 'setup_crash_store')
 CRASH_CATEGORIES = frozenset({
     'runtime_limits', 'dumpable_parent', 'dumpable_child', 'crash_signal',
     'kernel_core_flag', 'own_argv', 'own_environment', 'stdio_detached',
@@ -30,6 +31,7 @@ CRASH_CATEGORIES = frozenset({
     'sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
     'swap_bytes', 'git_worktree', 'git_index', 'git_history', 'ci_artifacts',
     'human_input_path', 'observation_window', 'apport_log', 'crash_store',
+    *CRASH_SETUP_STAGES,
 })
 HOST_ID = LIB / 'host-id'
 ORDINARY_RESULT = Path('/var/tmp/ai-invest-operator-preflight.json')
@@ -270,7 +272,8 @@ def validate_report(report):
         require(all(type(value) is str and value in ('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE')
                     for value in results.values()))
         expected = 'crash_trial_failed' if 'FAIL' in results.values() else 'coverage_incomplete'
-        require(report['failed_checks'] == [expected])
+        setup_failures = [name for name in CRASH_SETUP_STAGES if results[name] == 'FAIL']
+        require(report['failed_checks'] == (setup_failures or [expected]))
         return report
     if report.get('mode') == 'diagnostic':
         require(set(report) == base | {'failed_checks'})

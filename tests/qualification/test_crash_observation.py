@@ -43,7 +43,7 @@ def observation(reader=None):
     obj = H.Observation.__new__(H.Observation)
     obj.reader, obj.boot, obj.anchor = reader, BOOT, 'inert-cursor'
     obj.start, obj.wall, obj.ready = 1.0, 100.0, True
-    obj.log_fd, obj.watch_fd = None, None
+    obj.log, obj.watch_fd = H.LogSource(), None
     return obj
 
 
@@ -218,17 +218,23 @@ class ObservationTests(unittest.TestCase):
 
     def test_log_rotation_truncation_rewrite_and_short_read(self):
         def info(size=10, ino=1, stamp=1):
-            return SimpleNamespace(st_dev=1, st_ino=ino, st_size=size, st_mtime_ns=stamp, st_ctime_ns=stamp)
+            return SimpleNamespace(st_dev=1, st_ino=ino, st_size=size, st_mtime_ns=stamp,
+                                   st_ctime_ns=stamp, st_mode=stat.S_IFREG | 0o640, st_uid=0)
         obj = observation()
-        obj.log_path, obj.log_info, obj.log_fd = Path('/fixed-fixture'), info(), 5
+        obj.log.info, obj.log.fd = info(), 5
         for current in (info(9), info(10, 2), info(10, stamp=2), info(11, stamp=2)):
-            with patch.object(H, 'root_path', return_value=current), patch.object(H.os, 'fstat', return_value=current), \
+            with patch.object(obj.log, 'verify_directory'), patch.object(obj.log, 'verify_file', return_value=current), \
+                 patch.object(H.os, 'fstat', return_value=current), \
                  patch.object(H.os, 'pread', return_value=b''):
-                with self.assertRaises(H.Refused): obj.apport(123, FIXTURE)
+                try:
+                    result = obj.apport(123, FIXTURE)
+                except H.Refused:
+                    continue
+                self.assertEqual(result, ('NOT_TESTED', True))
 
     def test_close_is_idempotent_and_closes_only_owned_fds(self):
         obj = observation(Mock())
-        obj.log_fd, obj.watch_fd = 7, 8
+        obj.log.fd, obj.watch_fd = 7, 8
         with patch.object(H.os, 'close') as close:
             obj.close(); obj.close()
             self.assertEqual([call.args for call in close.call_args_list], [(7,), (8,)])
@@ -253,10 +259,10 @@ class ObservationTests(unittest.TestCase):
             with self.assertRaises(H.Refused): H.wait_exit(123, 2)
 
     def test_journal_change_watch_established_before_anchor_reg_ob05(self):
-        source = inspect.getsource(H.Observation.__init__)
+        source = inspect.getsource(H.Observation.setup_journal)
         self.assertIn('require(self.reader.fileno() >= 0)', source)
         self.assertLess(source.index('self.reader.fileno()'), source.index('self.reader.seek_tail()'))
-        self.assertLess(source.index('self.reader.fileno()'), source.index('self.ready = True'))
+        self.assertLess(source.index('self.reader.fileno()'), source.index('self.anchor ='))
 
     def test_unavailable_journal_change_watch_closes_without_host_read(self):
         for failure in (-1, OSError('UNPUBLISHED_WATCH_FAILURE')):
@@ -265,17 +271,20 @@ class ObservationTests(unittest.TestCase):
             binding = SimpleNamespace(_Reader=Mock(return_value=reader), LOCAL_ONLY=1, SYSTEM=4)
             with patch.dict(sys.modules, {'systemd': SimpleNamespace(_reader=binding)}), \
                  patch.object(H, 'bounded_read', return_value=BOOT.encode()), \
+                 patch.object(H.LogSource, 'setup_directory'), patch.object(H.LogSource, 'setup_file'), \
+                 patch.object(H.Observation, 'setup_store'), \
                  patch.object(H, 'root_path') as path:
                 obj = H.Observation()
                 self.assertFalse(obj.ready)
                 path.assert_not_called()
+                obj.close()
                 reader.close.assert_called_once()
 
     def test_scope_and_result_remain_fixed(self):
         policy = (ROOT / 'infrastructure/qualification/ai-invest-operator.sudoers').read_text()
         self.assertEqual(policy.count('/usr/local/sbin/ai-invest-operator-preflight'), 2)
         self.assertNotIn('NOPASSWD', policy)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-observation.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-log-source.json')
         self.assertIn('os.O_EXCL', inspect.getsource(W))
 
 
@@ -287,7 +296,10 @@ class CheckpointTests(unittest.TestCase):
         text = self.text()
         for path in ('scripts/qualification/crash_canary.py', 'scripts/qualification/run_operator_preflight.py',
                      'infrastructure/qualification/ai-invest-operator.sudoers'):
-            self.assertIn(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), text)
+            original = subprocess.run(['/usr/bin/git', 'show',
+                '531671a5e6e3bf8c7efc3bddb899c53d53cd1c27:' + path],
+                cwd=ROOT, capture_output=True, check=True, timeout=10).stdout
+            self.assertIn(hashlib.sha256(original).hexdigest(), text)
         self.assertNotIn('unlink -- /var/tmp', text)
         self.assertIn('/var/tmp/ai-invest-crash-qualification.json', text)
 

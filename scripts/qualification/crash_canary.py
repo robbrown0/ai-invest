@@ -5,7 +5,9 @@ No standalone CLI, secret input, external command, file writer, or bootstrap.
 Unobserved channels remain NOT_TESTED; this cannot authorize real secret entry.
 """
 import ctypes
+import errno
 import faulthandler
+import grp
 import json
 import os
 from pathlib import Path
@@ -14,6 +16,7 @@ import resource
 import select
 import signal
 import stat
+import struct
 import time
 
 MAX_RESULT = 4096
@@ -21,6 +24,7 @@ DEADLINE = 35
 OBSERVATION_SECONDS = 10
 MAX_OBSERVATION = 1024 * 1024
 MAX_FIELD = 65536
+SETUP_STAGES = ('setup_journal', 'setup_log_directory', 'setup_log_file', 'setup_crash_store')
 JOURNAL_FIELDS = ('_BOOT_ID', '_PID', 'COREDUMP_PID', 'OBJECT_PID',
     '_SYSTEMD_UNIT', 'OBJECT_SYSTEMD_UNIT', 'UNIT', 'MESSAGE', 'COREDUMP',
     'COREDUMP_FILENAME', 'COREDUMP_CMDLINE', 'COREDUMP_ENVIRON',
@@ -32,6 +36,7 @@ CATEGORIES = (
     'sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
     'swap_bytes', 'git_worktree', 'git_index', 'git_history', 'ci_artifacts',
     'human_input_path', 'observation_window', 'apport_log', 'crash_store',
+    *SETUP_STAGES,
 )
 STATES = frozenset(('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE'))
 # PR_SET_PDEATHSIG, PR_GET_DUMPABLE, PR_SET_DUMPABLE from linux/prctl.h.
@@ -40,6 +45,10 @@ LIBC.prctl.restype = ctypes.c_int
 
 
 class Refused(Exception):
+    pass
+
+
+class SetupIncomplete(Exception):
     pass
 
 
@@ -55,8 +64,9 @@ def report(results=None):
         require(all(type(value) is str and value in STATES for value in results.values()))
         values.update(results)
     # Missing collector/input/leakage evidence deliberately prevents overall PASS.
+    setup_failures = [name for name in SETUP_STAGES if values[name] == 'FAIL']
     return {'mode': 'crash-test', 'checks_passed': False,
-            'failed_checks': ['crash_trial_failed' if 'FAIL' in values.values() else 'coverage_incomplete'],
+            'failed_checks': setup_failures or ['crash_trial_failed' if 'FAIL' in values.values() else 'coverage_incomplete'],
             'results': values, 'secret_entry_authorized': False,
             'runtime_crash_suppression_qualified': False}
 
@@ -190,6 +200,195 @@ def fingerprint(info):
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
+def log_directory_policy(info, syslog_gid, root_gid):
+    # Observation source ONLY. Never used for executable/helper/policy paths.
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == 0)
+    require((info.st_gid, stat.S_IMODE(info.st_mode)) in
+            ((root_gid, 0o755), (syslog_gid, 0o755), (syslog_gid, 0o775)))
+
+
+def log_file_policy(info):
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1)
+    require(stat.S_IMODE(info.st_mode) in (0o600, 0o640, 0o644))
+
+
+def log_acl_policy(fd):
+    # Mode 0775 can hide additional named-user write grants in a POSIX ACL.
+    # Inspect only presence on the held directory; never publish ACL contents.
+    try:
+        os.getxattr(fd, 'system.posix_acl_access')
+    except OSError as error:
+        require(error.errno == errno.ENODATA)
+        return
+    raise Refused()
+
+
+class LogSource:
+    """Fixed /var/log/apport.log reader, never a code-loading trust policy.
+
+    Root and approved syslog-directory writers remain trusted. Descriptor
+    anchoring detects observed substitutions, not malicious pre-baseline erasure.
+    """
+    def __init__(self):
+        self.chain = []
+        self.fd = None
+        self.info = None
+        self.watch_fd = None
+        self.watch_changed = False
+
+    def setup_directory(self):
+        self.syslog_gid = grp.getgrnam('syslog').gr_gid
+        self.root_gid = grp.getgrnam('root').gr_gid
+        require(type(self.syslog_gid) is int and type(self.root_gid) is int
+                and self.syslog_gid >= 0 and self.root_gid >= 0
+                and self.syslog_gid != self.root_gid)
+        flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        for name in ('/', 'var', 'log'):
+            parent = self.chain[-1][0] if self.chain else None
+            before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            if name == 'log':
+                log_directory_policy(before, self.syslog_gid, self.root_gid)
+            else:
+                require(stat.S_ISDIR(before.st_mode) and before.st_uid == 0
+                        and not before.st_mode & 0o022)
+            fd = os.open(name, flags, dir_fd=parent)
+            # Register immediately, including a subsequently rejected descriptor.
+            self.chain.append((fd, parent, name, before))
+            require(fingerprint(os.fstat(fd)) == fingerprint(before))
+            require(fingerprint(os.stat(name, dir_fd=parent, follow_symlinks=False)) == fingerprint(before))
+        self.watch_fd = LIBC.inotify_init1(os.O_CLOEXEC | os.O_NONBLOCK)
+        require(self.watch_fd >= 0)
+        # Kernel-provided link to this process's retained directory FD only.
+        # Unlike a mutable /var/log pathname, it cannot select another inode.
+        self.watch_id = LIBC.inotify_add_watch(self.watch_fd,
+            ('/proc/self/fd/' + str(self.chain[-1][0])).encode('ascii'), 0x01000FCE)
+        require(self.watch_id >= 0)  # IN_ONLYDIR plus reviewed mutation events.
+        self.verify_directory()
+
+    def verify_events(self):
+        require(not self.watch_changed and self.watch_fd is not None)
+        try:
+            for _ in range(4):
+                try:
+                    data = os.read(self.watch_fd, 65536)
+                except BlockingIOError:
+                    return
+                require(data and len(data) <= 65536)
+                offset = 0
+                while offset < len(data):
+                    require(len(data) - offset >= 16)
+                    wd, mask, _, size = struct.unpack_from('iIII', data, offset)
+                    require(wd == self.watch_id and not mask & 0xEC00)
+                    require(mask and not mask & ~0x40000FCE)
+                    require(0 < size <= 4096 and size % 4 == 0 and offset + 16 + size <= len(data))
+                    padded = data[offset + 16:offset + 16 + size]
+                    name, separator, padding = padded.partition(b'\0')
+                    require(separator and name and b'/' not in name and not padding.strip(b'\0'))
+                    require(name != b'apport.log')
+                    offset += 16 + size
+            raise Refused()  # Queue not proven drained within the fixed budget.
+        except BaseException:
+            self.watch_changed = True  # Never clear a consumed mutation/error.
+            raise
+
+    def verify_directory(self):
+        require(len(self.chain) == 3)
+        for fd, parent, name, old in self.chain:
+            held = os.fstat(fd)
+            named = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            require(stat.S_ISDIR(held.st_mode) and stat.S_ISDIR(named.st_mode))
+            require((held.st_dev, held.st_ino) == (old.st_dev, old.st_ino)
+                    == (named.st_dev, named.st_ino))
+            if name == 'log':
+                log_directory_policy(held, self.syslog_gid, self.root_gid)
+                log_directory_policy(named, self.syslog_gid, self.root_gid)
+                log_acl_policy(fd)
+                # Detect entry changes, including rename-away-and-back or an
+                # initially absent file created then removed during observation.
+                require(fingerprint(held) == fingerprint(old) == fingerprint(named))
+            else:
+                require(held.st_uid == named.st_uid == 0
+                        and not (held.st_mode | named.st_mode) & 0o022)
+        self.verify_events()
+
+    def named_file(self):
+        try:
+            return os.stat('apport.log', dir_fd=self.chain[-1][0], follow_symlinks=False)
+        except FileNotFoundError:
+            return None
+
+    def setup_file(self):
+        self.verify_directory()
+        before = self.named_file()
+        if before is not None:
+            log_file_policy(before)
+            self.fd = os.open('apport.log', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                              dir_fd=self.chain[-1][0])
+            held = os.fstat(self.fd)
+            log_file_policy(held)
+            require(fingerprint(held) == fingerprint(before))
+            self.info = held
+            self.verify_file()
+        else:
+            require(self.named_file() is None)
+        self.verify_directory()
+
+    def verify_file(self):
+        named = self.named_file()
+        require(named is not None and self.fd is not None)
+        held = os.fstat(self.fd)
+        log_file_policy(named)
+        log_file_policy(held)
+        require((held.st_dev, held.st_ino) == (self.info.st_dev, self.info.st_ino))
+        require(fingerprint(held) == fingerprint(named))
+        return held
+
+    def observe(self, child, canary):
+        stable = True
+        try:
+            self.verify_directory()
+            if self.info is None:
+                require(self.named_file() is None)
+                self.verify_directory()
+                return 'PASS', False
+            self.verify_file()
+        except Exception:
+            stable = False
+        require(self.info is not None and self.fd is not None)
+        # Read only appended bytes of the already anchored original file, even
+        # after rotation, to avoid erasing a known positive. Never open a replacement.
+        now = os.fstat(self.fd)
+        require(stat.S_ISREG(now.st_mode) and now.st_uid == 0
+                and (now.st_dev, now.st_ino) == (self.info.st_dev, self.info.st_ino))
+        require(self.info.st_size <= now.st_size <= self.info.st_size + MAX_OBSERVATION)
+        data = os.pread(self.fd, now.st_size - self.info.st_size, self.info.st_size)
+        leaked, complete = apport_records(data, child, canary)
+        if leaked:
+            return 'FAIL', True
+        require(len(data) == now.st_size - self.info.st_size)
+        self.verify_directory()
+        after = self.verify_file()
+        require(stable and fingerprint(after) == fingerprint(now))
+        if fingerprint(now) == fingerprint(self.info):
+            return 'PASS', False
+        # Any append/metadata rewrite prevents a no-invocation conclusion.
+        return ('PASS' if complete and data else 'NOT_TESTED'), True
+
+    def close(self):
+        failed = False
+        owned = ([self.fd] if self.fd is not None else [])
+        if self.watch_fd is not None and self.watch_fd >= 0:
+            owned.append(self.watch_fd)
+        owned += [item[0] for item in reversed(self.chain)]
+        self.fd, self.watch_fd, self.chain = None, None, []
+        for fd in owned:
+            try:
+                os.close(fd)
+            except BaseException:
+                failed = True
+        require(not failed)
+
+
 def journal_groups(boot, parent, child):
     scope = 'ai-invest-operator-preflight.scope'
     return [(('_BOOT_ID', boot), (key, value)) for key, value in (
@@ -235,59 +434,73 @@ class Observation:
     """Fixed read-only sinks inside the protected worker; no external canary receiver."""
     def __init__(self):
         self.reader = None
-        self.log_fd = self.watch_fd = None
+        self.watch_fd = None
+        self.log = LogSource()
         self.ready = False
-        try:
-            # Import installed standard binding BEFORE random material exists.
-            from systemd import _reader
-            self.boot = bounded_read('/proc/sys/kernel/random/boot_id', 64).strip().decode('ascii').replace('-', '')
-            require(re.fullmatch('[0-9a-f]{32}', self.boot) is not None)
-            self.reader = _reader._Reader(flags=_reader.LOCAL_ONLY | _reader.SYSTEM)
-            # v255 process() alone does not establish journal change watches.
-            require(self.reader.fileno() >= 0)
-            self.reader.data_threshold = MAX_FIELD
-            self.reader.seek_tail()
-            require(self.reader._previous())
-            _, boot = self.reader._get_monotonic()
-            require(boot.hex() == self.boot)
-            self.anchor = self.reader._get_cursor()  # No historical entry body.
-            root_path('/var/log', directory=True)
-            self.log_path = Path('/var/log/apport.log')
-            if self.log_path.exists():
-                info = root_path(self.log_path)
-                self.log_fd = os.open(self.log_path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
-                require(fingerprint(os.fstat(self.log_fd)) == fingerprint(info))
-                self.log_info = info
-            else:
-                require(not self.log_path.is_symlink())
-                self.log_info = None
-            self.watch_fd = LIBC.inotify_init1(os.O_CLOEXEC | os.O_NONBLOCK)
-            require(self.watch_fd >= 0)
-            self.stores = []
-            for path in ('/var/crash', '/var/lib/systemd/coredump'):
-                target = Path(path)
-                if not target.exists():
-                    require(not target.is_symlink())
-                    target = target.parent
-                info = root_path(target, directory=True, sticky=target == Path('/var/crash'))
-                # modify/attrib/close-write/moves/create/delete/self; any event
-                # including queue overflow means incomplete. No report contents.
-                require(LIBC.inotify_add_watch(self.watch_fd, os.fsencode(target), 0xFCE) >= 0)
-                self.stores.append((target, info.st_dev, info.st_ino))
+        self.setup = dict.fromkeys(SETUP_STAGES, 'NOT_TESTED')
+        # Four fixed stages, not a caller-selected diagnostic/command framework.
+        # Journal and store probes remain independent of the log-directory policy.
+        for name, operation in (('setup_journal', self.setup_journal),
+                                ('setup_log_directory', self.log.setup_directory),
+                                ('setup_log_file', self.log.setup_file),
+                                ('setup_crash_store', self.setup_store)):
+            if name == 'setup_log_file' and self.setup['setup_log_directory'] != 'PASS':
+                continue
+            try:
+                operation()
+                self.setup[name] = 'PASS'
+            except BaseException:
+                self.setup[name] = 'FAIL'
+        self.ready = all(value == 'PASS' for value in self.setup.values())
+        if self.ready:
             self.start, self.wall = time.monotonic(), time.time()
-            self.ready = True
-        except BaseException:
-            self.close()
+
+    def setup_journal(self):
+        # Import installed standard binding BEFORE random material exists.
+        from systemd import _reader
+        self.boot = bounded_read('/proc/sys/kernel/random/boot_id', 64).strip().decode('ascii').replace('-', '')
+        require(re.fullmatch('[0-9a-f]{32}', self.boot) is not None)
+        self.reader = _reader._Reader(flags=_reader.LOCAL_ONLY | _reader.SYSTEM)
+        require(self.reader.fileno() >= 0)
+        self.reader.data_threshold = MAX_FIELD
+        self.reader.seek_tail()
+        require(self.reader._previous())
+        _, boot = self.reader._get_monotonic()
+        require(boot.hex() == self.boot)
+        self.anchor = self.reader._get_cursor()  # No historical entry body.
+
+    def setup_store(self):
+        self.watch_fd = LIBC.inotify_init1(os.O_CLOEXEC | os.O_NONBLOCK)
+        require(self.watch_fd >= 0)
+        self.stores = []
+        for path in ('/var/crash', '/var/lib/systemd/coredump'):
+            target = Path(path)
+            if not target.exists():
+                require(not target.is_symlink())
+                target = target.parent
+            info = root_path(target, directory=True, sticky=target == Path('/var/crash'))
+            require(LIBC.inotify_add_watch(self.watch_fd, os.fsencode(target), 0xFCE) >= 0)
+            self.stores.append((target, info.st_dev, info.st_ino))
 
     def close(self):
+        failed = False
         if self.reader is not None:
-            self.reader.close()
+            try:
+                self.reader.close()
+            except BaseException:
+                failed = True
             self.reader = None
-        for name in ('log_fd', 'watch_fd'):
-            fd = getattr(self, name)
-            if fd is not None and fd >= 0:
+        try:
+            self.log.close()
+        except BaseException:
+            failed = True
+        fd, self.watch_fd = self.watch_fd, None
+        if fd is not None and fd >= 0:
+            try:
                 os.close(fd)
-            setattr(self, name, None)
+            except BaseException:
+                failed = True
+        require(not failed)
 
     def journal(self, child, canary, end):
         reader = self.reader
@@ -332,24 +545,7 @@ class Observation:
         raise Refused()
 
     def apport(self, child, canary):
-        if self.log_info is None:
-            # A new file is an invocation indicator, not a reviewed baseline.
-            require(not self.log_path.exists() and not self.log_path.is_symlink())
-            return 'PASS', False
-        now = root_path(self.log_path)
-        old = self.log_info
-        require((now.st_dev, now.st_ino) == (old.st_dev, old.st_ino))
-        require(fingerprint(os.fstat(self.log_fd)) == fingerprint(now) and now.st_size >= old.st_size)
-        if fingerprint(now) == fingerprint(old):
-            return 'PASS', False
-        require(now.st_size > old.st_size and now.st_size - old.st_size <= MAX_OBSERVATION)
-        data = os.pread(self.log_fd, now.st_size - old.st_size, old.st_size)
-        require(len(data) == now.st_size - old.st_size)
-        leaked, complete = apport_records(data, child, canary)
-        if leaked:
-            return 'FAIL', True
-        require(fingerprint(os.fstat(self.log_fd)) == fingerprint(now))
-        return ('FAIL' if leaked else 'PASS' if complete else 'NOT_TESTED'), True
+        return self.log.observe(child, canary)
 
     def store_events(self):
         for target, device, inode in self.stores:
@@ -436,7 +632,10 @@ def trial(output_fd, supervisor_pid):
         group = runtime_limits()
         values.update(runtime_limits='PASS', dumpable_parent='PASS', stdio_detached='PASS')
         observation = Observation()
+        values.update(observation.setup)
         runtime_limits(group)  # Library loading cannot silently add workers.
+        if not observation.ready or any(values[name] != 'PASS' for name in SETUP_STAGES):
+            raise SetupIncomplete()
         # Generation is AFTER protections, inside the worker, never in wrapper/model.
         canary = os.getrandom(32)
         require(len(canary) == 32)
@@ -480,6 +679,8 @@ def trial(output_fd, supervisor_pid):
             for key in ('sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
                         'git_worktree', 'git_index', 'git_history', 'ci_artifacts'):
                 values[key] = 'NOT_APPLICABLE'
+    except SetupIncomplete:
+        pass  # Publish setup stages; no new canary and no deliberate crash.
     except BaseException:
         values['runtime_limits'] = 'FAIL'
     finally:

@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: one narrow crash trial passed; observation pending
+## Current checkpoint: log-source policy and setup readiness
+
+Use the **[guarded log-source upgrade and one console run](LOG_SOURCE_CHECKPOINT.md)** after reviewing the [confirmed mismatch and trust boundary](LOG_SOURCE_QUALIFICATION.md) and [independent review](LOG_SOURCE_REVIEW.md). The observer will collect fixed setup outcomes before any canary/crash, preserving all old results. Actual corrected host readiness remains unverified. All installation sections below are historical; Gate 2 and both authorization flags remain unchanged.
+
+## Previous checkpoint: one narrow crash trial passed; observation pending
 
 The owner reports 11 implemented local PASS checks and no FAIL at commit **5975603575b6761fb44932b84dc1519676639584**. See [the unchanged result, precise meanings and coverage matrix](OBSERVATION_QUALIFICATION.md). Use only the new **[guarded observation upgrade and console checkpoint](OBSERVATION_CHECKPOINT.md)** for the next run. It preserves the original result and still expects overall coverage_incomplete. Secret-entry and runtime-crash-qualification flags remain false. All sections below preserve earlier checkpoints; do not reuse their installation blocks.
 
