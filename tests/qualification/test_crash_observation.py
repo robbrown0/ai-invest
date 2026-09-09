@@ -128,8 +128,8 @@ class JournalTests(unittest.TestCase):
         reader = Reader([(1500000, entry(MESSAGE=FIXTURE)), (1500001, {})])
         self.assertEqual(self.run_reader(reader), ('FAIL', True))
 
-    def test_before_window_wrong_boot_rejected_after_window_not_read(self):
-        with self.assertRaises(H.Refused): self.run_reader(Reader([(999999, entry())]))
+    def test_outside_window_excluded_wrong_boot_rejected(self):
+        self.assertEqual(self.run_reader(Reader([(999999, entry())])), ('PASS', False))
         reader = Reader([(2000001, entry(MESSAGE=FIXTURE))])
         self.assertEqual(self.run_reader(reader), ('PASS', False))
         self.assertEqual(reader.payload_reads, 0)
@@ -284,7 +284,7 @@ class ObservationTests(unittest.TestCase):
         policy = (ROOT / 'infrastructure/qualification/ai-invest-operator.sudoers').read_text()
         self.assertEqual(policy.count('/usr/local/sbin/ai-invest-operator-preflight'), 2)
         self.assertNotIn('NOPASSWD', policy)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-boot-time.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-traversal.json')
         self.assertIn('os.O_EXCL', inspect.getsource(W))
 
 

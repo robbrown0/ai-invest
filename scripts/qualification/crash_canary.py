@@ -46,7 +46,7 @@ JOURNAL_REASONS = frozenset(('not_started', 'api_error', 'invalidation',
     'anchor_unavailable', 'unexpected_representation', 'incomplete_field',
     'attribution_mismatch', 'time_limit', 'record_limit', 'byte_limit',
     'append_pending', 'positive_match', 'complete', 'record_boot_mismatch',
-    'record_before_window', 'invalid_observation_interval'))
+    'record_before_window', 'invalid_observation_interval', 'ordering_ambiguous'))
 # PR_SET_PDEATHSIG, PR_GET_DUMPABLE, PR_SET_DUMPABLE from linux/prctl.h.
 LIBC = ctypes.CDLL(None, use_errno=True)
 LIBC.prctl.restype = ctypes.c_int
@@ -553,6 +553,7 @@ class Observation:
             check(0 <= self.start <= end and lower <= upper, 'invalid_observation_interval')
             reader.seek_monotonic(lower, self.boot)
             size, collector = 0, False
+            last_stamp = None
             for _ in range(256):
                 stage = 'budget'
                 check(time.monotonic() < deadline, 'time_limit')
@@ -566,9 +567,14 @@ class Observation:
                 check(type(stamp) is int and type(boot) is bytes and len(boot) == 16,
                       'unexpected_representation')
                 check(boot.hex() == self.boot, 'record_boot_mismatch')
-                check(lower <= stamp, 'record_before_window')
-                if stamp > upper:
-                    break  # Still process invalidation before any absence PASS.
+                check(stamp >= 0 and (last_stamp is None or stamp >= last_stamp),
+                      'ordering_ambiguous')
+                last_stamp = stamp
+                if stamp < lower or stamp > upper:
+                    # v255 may position before lower. Never read excluded payloads.
+                    # Spend the same iteration/time budget and advance ONCE. Do
+                    # not infer EOF from an upper-bound crossing across files.
+                    continue
                 entry = {}
                 # Raw v235 _get returns bytes, NOT high-level Reader conversions.
                 # Only KeyError means missing; never suppress other API errors.

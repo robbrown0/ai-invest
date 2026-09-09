@@ -81,7 +81,7 @@ class JournalDiagnosticsTests(unittest.TestCase):
     def test_time_boundaries_are_inclusive(self):
         for stamp in (1000000, 2000000):
             self.assertEqual(self.run_reader(Reader([(stamp, entry())]))[0], ('PASS', True))
-        self.failure(Reader([(999999, entry())]), 'timestamp_boot', 'record_before_window')
+        self.assertEqual(self.run_reader(Reader([(999999, entry())]))[0], ('PASS', False))
         self.assertEqual(self.run_reader(Reader([(2000001, entry())]))[0], ('PASS', False))
 
     def test_monotonic_representation_and_boot(self):
@@ -164,8 +164,8 @@ class JournalDiagnosticsTests(unittest.TestCase):
 
 
 class BootTimeTests(unittest.TestCase):
-    def test_three_failures_publish_only_fixed_reasons(self):
-        cases = [(Reader([(999999, entry())]), 2, 'record_before_window'),
+    def test_failures_publish_only_fixed_reasons(self):
+        cases = [(Reader([(2000001, entry()), (999999, entry())]), 2, 'ordering_ambiguous'),
                  (Reader(), 0.5, 'invalid_observation_interval')]
         wrong_boot = Reader([(1500000, entry())])
         wrong_boot._get_monotonic = Mock(return_value=(1500000, bytes.fromhex('b' * 32)))
@@ -215,13 +215,12 @@ class BootTimeTests(unittest.TestCase):
             observation(reader).journal(123, FIXTURE, 2)
         self.assertEqual(reader.payload_reads, 0)
 
-    def test_early_record_stays_incomplete_not_absence_or_skipped_positive(self):
+    def test_early_record_excluded_then_positive_detected(self):
         reader = Reader([(999999, entry()), (1500000, entry(MESSAGE=FIXTURE))])
         obj = observation(reader)
-        with self.assertRaises(H.JournalIncomplete):
-            obj.journal(123, FIXTURE, 2)
-        self.assertEqual(obj.journal_diagnostic['journal_reason'], 'record_before_window')
-        self.assertEqual(reader.payload_reads, 0)
+        self.assertEqual(obj.journal(123, FIXTURE, 2), ('FAIL', True))
+        self.assertEqual(obj.journal_diagnostic['journal_reason'], 'positive_match')
+        self.assertGreater(reader.payload_reads, 0)
 
     def test_all_three_new_reasons_allowed_but_no_raw_extensions(self):
         for reason in ('record_boot_mismatch', 'record_before_window', 'invalid_observation_interval'):
@@ -248,12 +247,131 @@ class BootTimeCheckpointTests(previous.CheckpointTests):
         text = self.text()
         for path in ('scripts/qualification/crash_canary.py', 'scripts/qualification/run_operator_preflight.py',
                      'infrastructure/qualification/ai-invest-operator.sudoers'):
-            self.assertIn(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), text)
+            original = subprocess.run(['/usr/bin/git', 'show',
+                '99dc9d518470bd54db81d6e6a4e26780947db511:' + path],
+                cwd=ROOT, capture_output=True, check=True, timeout=10).stdout
+            self.assertIn(hashlib.sha256(original).hexdigest(), text)
         self.assertIn('/var/tmp/ai-invest-crash-journal.json', text)
         self.assertNotIn('unlink -- /var/tmp', text)
 
 
+class TraversalTests(unittest.TestCase):
+    def run_reader(self, rows, configure=None):
+        reader = Reader(rows)
+        if configure:
+            configure(reader)
+        obj = observation(reader)
+        with patch.object(H.time, 'monotonic', return_value=1.5):
+            try:
+                result = obj.journal(123, FIXTURE, 2)
+            except H.JournalIncomplete:
+                result = ('NOT_TESTED', True)
+        return result, reader, obj
+
+    def test_excluded_prefix_and_suffix_have_no_payload_reads(self):
+        for rows in ([(999999, entry(MESSAGE=FIXTURE))],
+                     [(2000001, entry(MESSAGE=FIXTURE))],
+                     [(999999, entry(MESSAGE=FIXTURE)), (2000001, entry(MESSAGE=FIXTURE))]):
+            result, reader, obj = self.run_reader(rows)
+            self.assertEqual(result, ('PASS', False))
+            self.assertEqual(reader.payload_reads, 0)
+            self.assertEqual(obj.journal_diagnostic['journal_reason'], 'complete')
+
+    def test_exclusion_does_not_skip_in_window_positive(self):
+        result, reader, obj = self.run_reader([(999999, entry()), (1500000, entry(MESSAGE=FIXTURE))])
+        self.assertEqual(result, ('FAIL', True))
+        self.assertEqual(obj.journal_diagnostic['journal_reason'], 'positive_match')
+
+    def test_upper_crossing_is_not_an_absence_exit(self):
+        def configure(reader):
+            reader._next = Mock(side_effect=[True, True, OSError('UNPUBLISHED')])
+            reader._get_monotonic = Mock(return_value=(2000001, bytes.fromhex(BOOT)))
+        result, reader, obj = self.run_reader([], configure)
+        self.assertEqual(result[0], 'NOT_TESTED')
+        self.assertEqual(obj.journal_diagnostic, {'journal_stage': 'iteration', 'journal_reason': 'api_error'})
+        self.assertEqual(reader.payload_reads, 0)
+
+    def test_visible_order_regression_refused_without_payload(self):
+        for rows in ([(2000001, entry()), (1500000, entry(MESSAGE=FIXTURE))],
+                     [(999999, entry()), (999998, entry())]):
+            result, reader, obj = self.run_reader(rows)
+            self.assertEqual(result[0], 'NOT_TESTED')
+            self.assertEqual(obj.journal_diagnostic['journal_reason'], 'ordering_ambiguous')
+            self.assertEqual(reader.payload_reads, 0)
+
+    def test_boot_mismatch_after_upper_still_refused(self):
+        def configure(reader):
+            reader._get_monotonic = Mock(side_effect=[
+                (2000001, bytes.fromhex(BOOT)), (2000002, bytes.fromhex('b' * 32))])
+        result, reader, obj = self.run_reader([(2000001, entry()), (2000002, entry())], configure)
+        self.assertEqual(result[0], 'NOT_TESTED')
+        self.assertEqual(obj.journal_diagnostic['journal_reason'], 'record_boot_mismatch')
+        self.assertEqual(reader.payload_reads, 0)
+
+    def test_all_excluded_visits_spend_existing_record_budget(self):
+        for stamp in (999999, 2000001):
+            self.assertEqual(self.run_reader([(stamp, entry())] * 255)[0], ('PASS', False))
+            result, reader, obj = self.run_reader([(stamp, entry())] * 256)
+            self.assertEqual(result[0], 'NOT_TESTED')
+            self.assertEqual(obj.journal_diagnostic['journal_reason'], 'record_limit')
+            self.assertEqual(reader.payload_reads, 0)
+
+    def test_excluded_records_spend_time_budget(self):
+        obj = observation(Reader([(999999, entry())]))
+        with patch.object(H.time, 'monotonic', side_effect=[1, 1.5, 4]):
+            with self.assertRaises(H.JournalIncomplete):
+                obj.journal(123, FIXTURE, 2)
+        self.assertEqual(obj.journal_diagnostic['journal_reason'], 'time_limit')
+
+    def test_final_change_checked_after_excluded_records(self):
+        for state, reason in ((1, 'append_pending'), (2, 'invalidation')):
+            result, _, obj = self.run_reader([(999999, entry()), (2000001, entry())],
+                lambda reader: setattr(reader, 'process', Mock(side_effect=[0, state])))
+            self.assertEqual(result[0], 'NOT_TESTED')
+            self.assertEqual(obj.journal_diagnostic['journal_reason'], reason)
+
+    def test_positive_survives_later_order_failure(self):
+        result, _, obj = self.run_reader([(1500000, entry(MESSAGE=FIXTURE)), (999999, entry())])
+        self.assertEqual(result, ('FAIL', True))
+        report = H.report({'journal': 'FAIL', **obj.journal_diagnostic})
+        self.assertEqual(W.validate_report(report), report)
+        self.assertFalse(report['secret_entry_authorized'])
+        self.assertFalse(report['runtime_crash_suppression_qualified'])
+        self.assertNotIn(FIXTURE.decode(), json.dumps(report))
+
+    def test_selector_scope_unchanged_and_only_one_seek(self):
+        old = subprocess.run(['/usr/bin/git', 'show',
+            '99dc9d518470bd54db81d6e6a4e26780947db511:scripts/qualification/crash_canary.py'],
+            capture_output=True, check=True, cwd=ROOT, timeout=10).stdout.decode()
+        self.assertIn(inspect.getsource(H.journal_groups), old)
+        reader = Reader([(999999, entry()), (1500000, entry()), (2000001, entry())])
+        reader.seek_monotonic = Mock(wraps=reader.seek_monotonic)
+        self.assertEqual(observation(reader).journal(123, FIXTURE, 2), ('PASS', True))
+        reader.seek_monotonic.assert_called_once_with(1000000, BOOT)
+
+
+class TraversalCheckpointTests(previous.CheckpointTests):
+    def text(self):
+        return (ROOT / 'docs/qualification/TRAVERSAL_CHECKPOINT.md').read_text()
+
+    def test_current_hashes_and_prior_evidence_preserved(self):
+        text = self.text()
+        for path in ('scripts/qualification/crash_canary.py', 'scripts/qualification/run_operator_preflight.py',
+                     'infrastructure/qualification/ai-invest-operator.sudoers'):
+            self.assertIn(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), text)
+        self.assertIn('/var/tmp/ai-invest-crash-boot-time.json', text)
+        self.assertNotIn('unlink -- /var/tmp', text)
+
+
 class NativeBindingTests(unittest.TestCase):
+    def test_discovery_permutation_does_not_confuse_selector_with_order_reg_tr01(self):
+        from fixture_journal_api import reverse_discovery
+        for selector in range(7):
+            for order in (0, 1):
+                for kind in ('positive', 'negative'):
+                    self.assertEqual(reverse_discovery('split_' + str(selector) + '_' + str(order) + '_' + kind), bool(order))
+        self.assertFalse(reverse_discovery('split_negative'))
+
     def test_installed_binding_against_eleven_private_native_journal_cases(self):
         result = subprocess.run(['/usr/bin/python3', '-I', '-B',
             str(ROOT / 'tests/qualification/fixture_journal_api.py')],
@@ -266,8 +384,9 @@ class NativeBindingTests(unittest.TestCase):
         self.assertEqual(value.get('status'), 'PASS')
         self.assertEqual(len(value['cases']), 11)
         self.assertEqual(set(value['cases'].values()), {'PASS'})
-        self.assertEqual(len(value['boundaries']), 24)
+        self.assertEqual(len(value['boundaries']), 61)
         self.assertEqual(set(value['boundaries'].values()), {'PASS'})
+        self.assertEqual(value['compatibility'], {'multiple_files': 'POSITIVE_DETECTED'})
 
 
 class CheckpointTests(previous.CheckpointTests):

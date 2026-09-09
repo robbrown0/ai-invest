@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: distinct boot/time predicates
+## Current checkpoint: bounded traversal compatibility correction
+
+Use only the **[guarded traversal upgrade and console run](TRAVERSAL_CHECKPOINT.md)** after [the confirmed condition and correction evidence](TRAVERSAL_QUALIFICATION.md) and [independent review](TRAVERSAL_REVIEW.md). This tests the actual correction, not another diagnostic-only run. Original bounds/selectors remain; excluded metadata consumes existing budgets and never supplies payload evidence. Both flags remain false and Gate 2 NOT PASSED. Prior installation blocks are historical.
+
+## Previous checkpoint: distinct boot/time predicates
 
 Use only the **[guarded boot/time upgrade and one console run](BOOT_TIME_CHECKPOINT.md)** after reading [the protected-host excerpt and native reproduction](BOOT_TIME_QUALIFICATION.md) and [independent review](BOOT_TIME_REVIEW.md). The human's shared attribution_mismatch does not identify which boot/time condition failed. The next run distinguishes all three without weakening checks. Earlier installation blocks below are historical; both flags remain false and Gate 2 NOT PASSED.
 

@@ -31,6 +31,11 @@ class IOVec(C.Structure):
     _fields_ = [('base', C.c_void_p), ('length', C.c_size_t)]
 
 
+def reverse_discovery(name):
+    parts = name.split('_')
+    return len(parts) == 4 and parts[0] == 'split' and parts[2] == '1'
+
+
 def main():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_FSIZE, (32 * 1024**2,) * 2)
@@ -59,7 +64,7 @@ def main():
         ROOT / 'scripts/qualification/crash_canary.py')
     harness = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(harness)
-    def write_file(path, rows, file_number=0):
+    def write_file(path, rows, file_number=0, sequence=None):
         cache, journal = lib.mmap_cache_new(), pointer()
         assert cache
         try:
@@ -76,7 +81,8 @@ def main():
                 boot = Identifier()
                 boot.bytes[:] = header_boot
                 assert lib.journal_file_append_entry(journal, C.byref(stamp), C.byref(boot),
-                    vectors, len(vectors), None, None, None, None) >= 0
+                    vectors, len(vectors), C.byref(sequence[0]) if sequence else None,
+                    C.byref(sequence[1]) if sequence else None, None, None) >= 0
         finally:
             if journal:
                 lib.journal_file_close(journal)
@@ -154,18 +160,44 @@ def main():
         ('fractional_upper', [[row(123457123456, message=FIXTURE)]], 123456.0, 123457.1234567),
         ('reversed_interval', [[row(1500000)]], 2.0, 1.0),
         ('submicrosecond_reversal', [[row(1500000)]], 1.0000009, 1.0000001),
+        ('pre_then_negative', [[row(999999), row(1500000)]], 1.0, 2.0),
+        ('split_negative', [[row(999999)], [row(1500000)]], 1.0, 2.0),
+        ('upper_then_regression', [[row(2000001), row(1500000)]], 1.0, 2.0),
+        ('pre_budget_pass', [[row(500000 + i) for i in range(255)]], 1.0, 2.0),
+        ('pre_budget_fail', [[row(500000 + i) for i in range(256)]], 1.0, 2.0),
+        ('post_budget_pass', [[row(2000001 + i) for i in range(255)]], 1.0, 2.0),
+        ('post_budget_fail', [[row(2000001 + i) for i in range(256)]], 1.0, 2.0),
+        ('shared_positive', [[row(999999)], [row(1500000, message=FIXTURE)]], 1.0, 2.0),
+        ('shared_negative', [[row(999999)], [row(1500000)]], 1.0, 2.0),
     ]
     boundary_cases += [('history_clause_' + str(i),
         [[row(999999), row(1500000, group[1], FIXTURE)]], 1.0, 2.0)
         for i, group in enumerate(selectors)]
+    for i, group in enumerate(selectors):
+        for reverse in (False, True):
+            for positive in (False, True):
+                files = [[row(999999)], [row(1500000, group[1], FIXTURE if positive else b'negative')]]
+                boundary_cases.append(('split_' + str(i) + '_' + str(int(reverse)) +
+                    ('_positive' if positive else '_negative'), files, 1.0, 2.0))
     boundary_results = {}
     for name, files, start, end in boundary_cases:
         with tempfile.TemporaryDirectory(prefix='ai-invest-native-boundary-') as directory:
             paths = []
+            sequence = (C.c_uint64(0), Identifier()) if name.startswith('shared_') else None
+            if sequence:
+                sequence[1].bytes[:] = bytes.fromhex('c' * 32)
             for index, rows in enumerate(files):
                 path = str(Path(directory) / ('fixture-' + str(index) + '.journal'))
-                write_file(path, rows, index)
+                write_file(path, rows, index, sequence)
                 paths.append(path)
+                if sequence:
+                    with _reader._Reader(flags=0, files=[path]) as one:
+                        one.seek_tail()
+                        assert one._previous()
+                        assert one._get_cursor().split(';')[0] == 's=' + bytes(sequence[1].bytes).hex()
+            # Permute reader discovery order, not synthetic clock chronology.
+            if reverse_discovery(name):
+                paths.reverse()
             class ObservedReader(_reader._Reader):
                 payload_reads = 0
                 def _get(self, key):
@@ -188,10 +220,9 @@ def main():
                 # Expected incomplete cases are successful regression assertions,
                 # NOT successful journal observations or absence claims.
                 incomplete = {
-                    'pre_only': 'record_before_window',
-                    'outside_lower_positive': 'record_before_window',
-                    'multiple_files': 'record_before_window',
-                    'multiple_files_pre_only': 'record_before_window',
+                    'upper_then_regression': 'ordering_ambiguous',
+                    'pre_budget_fail': 'record_limit',
+                    'post_budget_fail': 'record_limit',
                     'boot_header_field_disagreement': 'record_boot_mismatch',
                     'reversed_interval': 'invalid_observation_interval',
                     'submicrosecond_reversal': 'invalid_observation_interval',
@@ -200,17 +231,22 @@ def main():
                     assert answer[0] == 'NOT_TESTED'
                     assert obj.journal_diagnostic['journal_reason'] == incomplete[name]
                     assert reader.payload_reads == 0
-                elif name in ('earlier_runs', 'outside_upper_positive'):
+                elif name in ('earlier_runs', 'outside_upper_positive', 'pre_only',
+                              'outside_lower_positive', 'multiple_files_pre_only',
+                              'pre_then_negative', 'split_negative', 'pre_budget_pass',
+                              'post_budget_pass') or name.endswith('_negative'):
                     assert answer[0] == 'PASS'
                     assert obj.journal_diagnostic['journal_reason'] == 'complete'
-                    if name == 'outside_upper_positive':
+                    if name in ('pre_only', 'outside_lower_positive', 'outside_upper_positive',
+                                'multiple_files_pre_only', 'pre_budget_pass', 'post_budget_pass'):
                         assert reader.payload_reads == 0
                 else:
                     assert answer[0] == 'FAIL'
                     assert obj.journal_diagnostic['journal_reason'] == 'positive_match'
                     assert reader.payload_reads > 0
                 boundary_results[name] = 'PASS'
-    return {'status': 'PASS', 'cases': results, 'boundaries': boundary_results}
+    return {'status': 'PASS', 'cases': results, 'boundaries': boundary_results,
+            'compatibility': {'multiple_files': 'POSITIVE_DETECTED'}}
 
 
 if __name__ == '__main__':
