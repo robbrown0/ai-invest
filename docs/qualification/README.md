@@ -1,4 +1,12 @@
-# Phase 3 Qualification Gate 2 — Prerequisite Stop
+# Phase 3 Qualification Gate 2 — Prerequisite Evidence
+
+## Current checkpoint after subsequent owner approval
+
+Gate 2 remains **NOT PASSED**. The owner approved the dedicated local LUKS2 loopback direction, sole-owner custody and project-scoped protections. Assessment resumed with a read-only preflight and synthetic regression tests; actual storage creation and protected secret entry have NOT occurred. See the [approved prerequisite assessment](APPROVED_PREREQUISITES.md), [required non-secret human operator checkpoint](OPERATOR_CHECKPOINT.md) and [independent checkpoint review](OPERATOR_REVIEW.md).
+
+The original stop and its observations below are preserved as historical evidence. Their documentation-only/no-code and undecided-owner wording describe that earlier checkpoint, not the subsequent qualification tooling. QH-02/QH-03 remain unqualified; no dependent Gate 2 runtime result is claimed.
+
+## Historical prerequisite stop
 
 **Status:** NOT PASSED — blocked before service creation and implementation.
 **Observation date:** 2026-09-09 UTC (2026-09-08 local evening).

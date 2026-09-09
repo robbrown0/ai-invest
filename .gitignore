@@ -27,6 +27,9 @@ secrets/
 *.pfx
 *.jks
 *.keystore
+*.luks
+*.luks2
+*.luks-header
 *.kdbx
 *.asc
 *.gpg

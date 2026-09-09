@@ -1,5 +1,7 @@
 # Scoped Prerequisites for Resuming Phase 3
 
+**Historical proposal:** The owner subsequently approved the LUKS2/local-storage, sole-custodian and project-scoped protection direction. See [the resumed assessment](APPROVED_PREREQUISITES.md) for current status. The original proposal below remains as historical evidence; no new storage or secret-bearing runtime is yet qualified.
+
 **Status:** PROPOSED — requires product-owner decision; no host change authorized by this document.
 **Purpose:** Resolve the observed prerequisite failure without weakening encryption or touching unrelated workloads.
 
