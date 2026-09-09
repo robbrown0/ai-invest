@@ -105,6 +105,8 @@ temp/
 
 # Databases, dumps, and local state
 *.sql
+# Reviewed source migration only; dumps elsewhere remain ignored.
+!backend/migrations/0001_tenant_foundation.sql
 *.sql.gz
 *.dump
 *.backup

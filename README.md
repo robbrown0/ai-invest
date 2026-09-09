@@ -2,7 +2,7 @@
 
 An experimental, multi-tenant, local-first AI-assisted investment research and paper-trading project. The internal name may change.
 
-The repository contains design documents and bootstrap placeholders only. **Phase 2 is at Design Gate 1 review; implementation requires explicit product-owner approval.** All architecture decisions remain DRAFT.
+The owner has authorized development toward a working PAPER-only V0. The repository now contains the design package, preserved qualification tooling and an initial database/backend/read-only PAPER transport foundation. **The application is not yet runnable; Gate 2 remains NOT PASSED.** The synthetic --io-test command is deferred. See [current implementation status and test commands](docs/V0_IMPLEMENTATION.md). Draft ADRs are not silently marked accepted.
 
 The goal is to test whether quantitative methods, local AI and optional frontier research improve risk-adjusted results after externally billed costs. No investment return or AI outperformance is promised. Initial experiments use $100–$300 simulated capital; PAPER is the only permitted external trading mode. BACKTEST/SHADOW do not submit orders, and no real-money functionality exists here.
 

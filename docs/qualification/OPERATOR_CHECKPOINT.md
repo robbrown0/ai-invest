@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: synthetic IO policy-scope approval
+## Current direction: synthetic IO deferred
+
+The owner declined implementing/installing --io-test for now. Its candidate, tests and documentation remain preserved. Follow the [working V0 implementation direction](../V0_IMPLEMENTATION.md); no console action or IO-policy approval is requested. Both authorization flags remain false and Gate 2 NOT PASSED. Revisit this path only if genuinely needed for safe credential provisioning or later secret-infrastructure work.
+
+## Deferred checkpoint: synthetic IO policy-scope approval
 
 The traversal trial passed its finite observer milestone. Read [the recorded success and IO acceptance criteria](INPUT_OUTPUT_QUALIFICATION.md), [independent candidate review](INPUT_OUTPUT_REVIEW.md), and [the approval checkpoint](INPUT_OUTPUT_CHECKPOINT.md). The synthetic IO candidate is unwired; adding its exact command requires explicit policy-scope approval before integration/installation. Do not rerun the successful traversal test or use historical installation blocks. Both flags remain false and Gate 2 NOT PASSED.
 

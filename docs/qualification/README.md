@@ -2,6 +2,10 @@
 
 ## Current checkpoint after subsequent owner approval
 
+**Current owner direction: --io-test is deferred, not awaiting another approval request.** Preserve its candidate/tests/design and all prior artifacts. Prioritize the [working PAPER V0 implementation](../V0_IMPLEMENTATION.md); return to IO qualification only for a concrete safe-provisioning need or later secret-infrastructure work. No Gate 2 or real-secret authorization follows. The earlier checkpoint requests below remain historical, not the current coding work queue.
+
+## Historical progression — prior action requests superseded by current V0 direction
+
 Current milestone: the owner's **46ce2ac030b69c70cfbbf01c7b238289f205a134** protected trial completed finite journal/Apport/store/collector observation: 20 PASS, 8 scoped NOT_APPLICABLE, human_input_path and swap_bytes still NOT_TESTED. [Recorded success and synthetic IO candidate](INPUT_OUTPUT_QUALIFICATION.md), [independent review](INPUT_OUTPUT_REVIEW.md), and [the one exact-mode policy approval checkpoint](INPUT_OUTPUT_CHECKPOINT.md) supersede next-run instructions below. No additional console run or privileged installation is requested yet. Both flags remain false; Gate 2 NOT PASSED. Existing wrapper/observer/sudo policy and all prior artifacts remain unchanged.
 
 Current compatibility correction: the owner's **99dc9d518470bd54db81d6e6a4e26780947db511** trial confirmed a correctly typed same-boot pre-window record. [Bounded metadata-only traversal and native before/after evidence](TRAVERSAL_QUALIFICATION.md), [independent review](TRAVERSAL_REVIEW.md) and [the current guarded upgrade/run](TRAVERSAL_CHECKPOINT.md) supersede next-run instructions below. The same split-file fixture now detects its in-window positive; absence requires bounded EOF and final completeness checks. Both flags remain false; Gate 2 NOT PASSED. All earlier failures/results remain preserved.
