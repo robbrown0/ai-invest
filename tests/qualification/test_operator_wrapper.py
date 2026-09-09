@@ -70,13 +70,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(command[at:at + 5], ['/usr/bin/env', '-i', 'PATH=/usr/sbin:/usr/bin:/sbin:/bin', 'LANG=C', 'LC_ALL=C'])
         self.assertEqual(set(WRAPPER.CLEAN_ENV), {'PATH', 'LANG', 'LC_ALL'})
 
-    def test_core_limits_isolated_interpreter_and_no_shell_profiles(self):
+    def test_core_limits_isolated_interpreter_and_no_shell(self):
         command = WRAPPER.scope_command('1:2')
-        at = command.index('/bin/bash')
-        self.assertEqual(command[at:at + 4], ['/bin/bash', '--noprofile', '--norc', '-c'])
-        self.assertEqual(command[at + 4],
-                         'set -eu; ulimit -Sc 0; ulimit -Hc 0; exec /usr/bin/python3 -I -B "$1" --scoped "$2"')
-        self.assertEqual(command[-2:], [str(WRAPPER.INSTALLED), '1:2'])
+        self.assertNotIn('/bin/bash', command)
+        self.assertIn('--expand-environment=no', command)
+        self.assertFalse(any('$' in value for value in command))
+        self.assertEqual(command[-6:], ['/usr/bin/python3', '-I', '-B', str(WRAPPER.INSTALLED), '--scoped', '1:2'])
         self.assertTrue((ROOT / 'scripts/qualification/run_operator_preflight.py').read_text().startswith('#!/usr/bin/python3 -I\n'))
 
     def test_original_helper_pin_matches_committed_baseline(self):

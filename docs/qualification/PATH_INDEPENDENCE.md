@@ -1,5 +1,7 @@
 # Inherited PATH Independence Qualification
 
+Subsequent evidence: the human installed this snapshot and reported a successful metadata diagnostic. See [current precise runtime evidence](CRASH_QUALIFICATION.md) and [next crash checkpoint](CRASH_CHECKPOINT.md). The pending wording and installation block below describe the earlier handoff and are historical, not current instructions.
+
 **Status:** Source correction prepared; human upgrade/runtime checkpoint pending. Gate 2 NOT PASSED.
 
 ## Confirmed evidence and root cause
@@ -233,4 +235,3 @@ Candidate strict visudo parsing PASS. All **16 Bash instruction blocks** across 
 Bounded common-secret-pattern validation PASS over **78 tracked/non-ignored working files**, index content and **120 pre-commit reachable history blobs**; matching values are suppressed. Repeat after staging/commit. PAPER/false placeholders and .env ignore remain unchanged. This is bounded pattern evidence, not a guarantee covering unrelated host logs or every possible secret.
 
 No gitleaks, trufflehog, bandit, semgrep, trivy, shellcheck or mmdc executable is available on PATH. GitHub Actions queries returned zero runs and zero artifacts. No functioning CI/security pipeline or synthetic-canary leakage qualification is claimed. No host installation or privileged diagnostic was run by the lead/reviewer; no application production code or real credential was introduced. PR #14 remains draft and unmerged.
-

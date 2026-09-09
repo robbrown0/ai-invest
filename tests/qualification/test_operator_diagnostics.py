@@ -178,7 +178,7 @@ class WrapperDiagnosticsTests(unittest.TestCase):
 
     def test_diagnostic_scope_differs_only_in_fixed_internal_flag(self):
         normal = W.scope_command('1:2')
-        expected = [part.replace(' --scoped ', ' --scoped-diagnostic ') for part in normal]
+        expected = ['--scoped-diagnostic' if part == '--scoped' else part for part in normal]
         self.assertEqual(W.scope_command('1:2', True), expected)
 
     def test_early_wrapper_failure_is_symbolic_and_stops_scope(self):

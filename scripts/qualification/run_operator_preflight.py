@@ -20,6 +20,17 @@ CHECKOUT = Path('/home/rob/ai-invest')
 INSTALLED = Path('/usr/local/sbin/ai-invest-operator-preflight')
 LIB = Path('/usr/local/libexec/ai-invest')
 HELPER = LIB / 'operator_preflight.py'
+CRASH_HELPER = LIB / 'crash_canary.py'
+CRASH_SHA256 = '781084d0a524347e81e5f241cbf349e3404c931cba5082ee27f48a02b2475415'
+CRASH_RESULT = Path('/var/tmp/ai-invest-crash-qualification.json')
+CRASH_CATEGORIES = frozenset({
+    'runtime_limits', 'dumpable_parent', 'dumpable_child', 'crash_signal',
+    'kernel_core_flag', 'own_argv', 'own_environment', 'stdio_detached',
+    'child_reaped', 'cleanup', 'bounded_result', 'collector_retention', 'journal',
+    'sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
+    'swap_bytes', 'git_worktree', 'git_index', 'git_history', 'ci_artifacts',
+    'human_input_path',
+})
 HOST_ID = LIB / 'host-id'
 ORDINARY_RESULT = Path('/var/tmp/ai-invest-operator-preflight.json')
 RESULT = ORDINARY_RESULT
@@ -52,6 +63,7 @@ DIAGNOSTIC_CHECKS = frozenset({
     'operator_evaluation', 'arguments', 'result_file', 'helper_integrity',
     'host_context', 'plan_preflight', 'scope_launch', 'report_validation', 'result_publication',
     'operator_identity', 'operator_environment', 'console_session',
+    'crash_harness',
     'environment_path',  # Historical report compatibility; no active PATH predicate.
 }) | ENVIRONMENT_CHECKS
 
@@ -192,7 +204,8 @@ def require_operator_identity():
     require(os.getuid() == 0 and os.environ.get('SUDO_UID') == str(OPERATOR_UID))
     require(Path('/proc/self/loginuid').read_text().strip() == str(OPERATOR_UID))
     require(os.environ.get('SUDO_USER') == pwd.getpwuid(OPERATOR_UID).pw_name)
-    require(os.environ.get('SUDO_COMMAND') == str(INSTALLED) + ' --diagnostic')
+    expected = '--crash-test' if sys.argv[1:] == ['--crash-test'] else '--diagnostic'
+    require(os.environ.get('SUDO_COMMAND') == str(INSTALLED) + ' ' + expected)
 
 
 def require_operator_environment():
@@ -248,6 +261,17 @@ def failure(diagnostic=False, check='report_validation'):
 def validate_report(report):
     require(type(report) is dict)
     base = {'mode', 'checks_passed', 'secret_entry_authorized', 'runtime_crash_suppression_qualified'}
+    if report.get('mode') == 'crash-test':
+        require(set(report) == base | {'failed_checks', 'results'})
+        require(report['checks_passed'] is False and report['secret_entry_authorized'] is False
+                and report['runtime_crash_suppression_qualified'] is False)
+        results = report['results']
+        require(type(results) is dict and set(results) == CRASH_CATEGORIES)
+        require(all(type(value) is str and value in ('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE')
+                    for value in results.values()))
+        expected = 'crash_trial_failed' if 'FAIL' in results.values() else 'coverage_incomplete'
+        require(report['failed_checks'] == [expected])
+        return report
     if report.get('mode') == 'diagnostic':
         require(set(report) == base | {'failed_checks'})
         failures = report.get('failed_checks')
@@ -340,22 +364,36 @@ def save_result(fd, report, publish=False):
     if publish:
         os.fchmod(fd, 0o644)  # Only allowlisted non-secret JSON is now readable over SSH.
         os.fsync(fd)
-        if report['mode'] == 'diagnostic':
+        if RESULT == CRASH_RESULT:
+            print('A new bounded synthetic crash-trial result is ready.')
+        elif report['mode'] == 'diagnostic':
             print('A new sanitized diagnostic result is ready.')
         else:
             print('A new sanitized result is ready at /var/tmp/ai-invest-operator-preflight.json.')
 
 
-def scope_command(identity, diagnostic=False):
+def invoke_crash():
+    source = checked_bytes(CRASH_HELPER)
+    require(hashlib.sha256(source).hexdigest() == CRASH_SHA256)
+    require(hmac.compare_digest(source, checked_bytes(
+        CHECKOUT / 'scripts/qualification/crash_canary.py', root_owned=False)))
+    namespace = {'__name__': 'qualification_crash_helper', '__file__': str(CRASH_HELPER)}
+    # Only pinned source is executed; no argument, path or arbitrary code is accepted.
+    exec(compile(source, str(CRASH_HELPER), 'exec'), namespace)
+    return validate_report(namespace['run']())
+
+
+def scope_command(identity, diagnostic=False, crash=False):
+    require(re.fullmatch(r'[0-9]{1,20}:[0-9]{1,20}', identity) is not None)
+    mode = '--scoped-crash-test' if crash else '--scoped-diagnostic' if diagnostic else '--scoped'
     command = ['/usr/bin/systemd-run', '--scope', '--unit=ai-invest-operator-preflight',
+            '--expand-environment=no',
             '-p', 'MemoryMax=2G', '-p', 'MemorySwapMax=0', '-p', 'TasksMax=32', '-p', 'CPUQuota=100%',
             '/usr/bin/unshare', '--mount', '--propagation', 'private',
             '/usr/bin/env', '-i', 'PATH=/usr/sbin:/usr/bin:/sbin:/bin', 'LANG=C', 'LC_ALL=C',
-            '/bin/bash', '--noprofile', '--norc', '-c',
-            'set -eu; ulimit -Sc 0; ulimit -Hc 0; exec /usr/bin/python3 -I -B "$1" --scoped "$2"',
-            'ai-invest-preflight', str(INSTALLED), identity]
-    if diagnostic:
-        command[-4] = command[-4].replace(' --scoped ', ' --scoped-diagnostic ')
+            '/usr/bin/python3', '-I', '-B', str(INSTALLED), mode, identity]
+    # Both core limits are zero in the root parent, inherited across exec and
+    # set again at scoped startup. No shell or variable-looking text is needed.
     return command
 
 
@@ -363,15 +401,16 @@ def main():
     global RESULT
     fd = None
     scoped = False
-    diagnostic = len(sys.argv) > 1 and sys.argv[1] in ('--diagnostic', '--scoped-diagnostic')
-    RESULT = DIAGNOSTIC_RESULT if diagnostic else ORDINARY_RESULT
+    crash = len(sys.argv) > 1 and sys.argv[1] in ('--crash-test', '--scoped-crash-test')
+    diagnostic = crash or (len(sys.argv) > 1 and sys.argv[1] in ('--diagnostic', '--scoped-diagnostic'))
+    RESULT = CRASH_RESULT if crash else DIAGNOSTIC_RESULT if diagnostic else ORDINARY_RESULT
     stage = 'root_operator'
     report = failure()
     try:
         require(os.geteuid() == 0)
         stage = 'arguments'
-        require(sys.argv[1:] in ([], ['--diagnostic']) or
-                (len(sys.argv) == 3 and sys.argv[1] in ('--scoped', '--scoped-diagnostic')))
+        require(sys.argv[1:] in ([], ['--diagnostic'], ['--crash-test']) or
+                (len(sys.argv) == 3 and sys.argv[1] in ('--scoped', '--scoped-diagnostic', '--scoped-crash-test')))
         scoped = len(sys.argv) == 3
         stage = 'rlimit_core'
         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
@@ -398,18 +437,22 @@ def main():
             require(invoke_helper(source, 'plan')['checks_passed'])
             stage = 'report_validation'
             report = invoke_helper(source, 'diagnostic' if diagnostic else 'operator')
+            if crash and report['checks_passed']:
+                stage = 'crash_harness'
+                report = invoke_crash()
         else:
             report = invoke_helper(source, 'plan')
             if report['checks_passed']:
                 info = os.fstat(fd)
                 stage = 'scope_launch'
                 save_result(fd, failure(diagnostic, stage))
-                completed = subprocess.run(scope_command(f'{info.st_dev}:{info.st_ino}', diagnostic),
+                completed = subprocess.run(scope_command(f'{info.st_dev}:{info.st_ino}', diagnostic, crash),
                                            env=CLEAN_ENV, check=False, close_fds=True)
                 stage = 'report_validation'
                 os.lseek(fd, 0, os.SEEK_SET)
                 report = validate_report(json.loads(os.read(fd, 8193)))
-                require(report['mode'] == ('diagnostic' if diagnostic else 'operator')
+                expected_modes = ('diagnostic', 'crash-test') if crash else ('diagnostic',) if diagnostic else ('operator',)
+                require(report['mode'] in expected_modes
                         and completed.returncode == (0 if report['checks_passed'] else 1))
             elif diagnostic:
                 report = failure(True, 'plan_preflight')

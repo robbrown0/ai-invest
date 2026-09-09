@@ -125,11 +125,10 @@ class PathIndependenceTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))
         self.assertEqual(W.CLEAN_ENV, {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C', 'LC_ALL': 'C'})
         scope = W.scope_command('1:2')
-        for executable in ('/usr/bin/unshare', '/usr/bin/env', '/bin/bash'):
+        for executable in ('/usr/bin/unshare', '/usr/bin/env', '/usr/bin/python3'):
             self.assertIn(executable, scope)
-        self.assertIn('exec /usr/bin/python3 -I -B', scope[-4])
-        self.assertIn('--noprofile', scope)
-        self.assertIn('--norc', scope)
+        self.assertNotIn('/bin/bash', scope)
+        self.assertIn('--expand-environment=no', scope)
 
 
 class UpgradeTests(unittest.TestCase):
@@ -180,7 +179,9 @@ fake_command() { count=$((count+1)); printf "step:%s:%s\n" "$count" "$*"; test "
         for name in ('scripts/qualification/run_operator_preflight.py',
                      'scripts/qualification/operator_preflight.py',
                      'infrastructure/qualification/ai-invest-operator.sudoers'):
-            self.assertIn(hashlib.sha256((ROOT / name).read_bytes()).hexdigest(), document)
+            snapshot = subprocess.check_output(['/usr/bin/git', 'show',
+                'f1dfe6cf10f22d0d5da3e39f2b49dc12ee286181:' + name], cwd=ROOT)
+            self.assertIn(hashlib.sha256(snapshot).hexdigest(), document)
         self.assertNotIn('.ai-invest-environment.pending', document)
         self.assertIn('path-helper.previous', document)
         self.assertIn('"$policy_restored:$helper_restored:$wrapper_restored" = 1:1:1', document)

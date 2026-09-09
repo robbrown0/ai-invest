@@ -162,10 +162,13 @@ class EnvironmentTests(unittest.TestCase):
                 with patch.dict(W.os.environ, fixture, clear=True):
                     self.assertEqual(accepted(W.require_operator_environment), expected)
 
-    def test_policy_change_is_digest_only(self):
+    def test_policy_controls_unchanged_except_exact_crash_test_grant(self):
         path = 'infrastructure/qualification/ai-invest-operator.sudoers'
         old = subprocess.check_output(['git', 'show', BASELINE + ':' + path], cwd=ROOT).decode()
-        normalize = lambda value: re.sub(r'sha256:[a-f0-9]{64}', 'sha256:REVIEWED_DIGEST', value)
+        def normalize(value):
+            value = re.sub(r', sha256:[a-f0-9]{64} /usr/local/sbin/ai-invest-operator-preflight --crash-test', '', value)
+            value = '\n'.join(line for line in value.splitlines() if not line.startswith('#') or line.startswith('#1000 '))
+            return re.sub(r'sha256:[a-f0-9]{64}', 'sha256:REVIEWED_DIGEST', value)
         self.assertEqual(normalize(old), normalize((ROOT / path).read_text()))
 
     def test_python_isolation_with_synthetic_python_settings(self):

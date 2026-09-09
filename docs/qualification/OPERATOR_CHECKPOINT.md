@@ -1,8 +1,8 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: inherited PATH independence
+## Current checkpoint: metadata PASS; bounded crash trial pending
 
-The latest human result identifies `environment_path`, after TTY, identity and keyset checks passed. Follow the **[current guarded upgrade and short console command](PATH_INDEPENDENCE.md)**. Exact inherited PATH equality is retired because inherited PATH selects no executable; no other environment predicate or sudo permission is relaxed. The three-artifact upgrade preserves prior snapshots and refreshes the exact command digest. Gate 2 remains NOT PASSED and both authorization flags remain false. Earlier [environment refinement](ENVIRONMENT_DIAGNOSTICS.md) and all blocks below remain historical evidence, not current installation instructions.
+The human's latest reviewed PATH-snapshot diagnostic returned checks_passed=true with no failures and both authorization flags false. See [exact runtime-qualified predicates and limits](CRASH_QUALIFICATION.md). Next is the **[guarded synthetic crash checkpoint](CRASH_CHECKPOINT.md)**, not secret bootstrap. That interim trial cannot claim complete collector/leakage qualification. Gate 2 remains NOT PASSED. Earlier [PATH correction](PATH_INDEPENDENCE.md), [environment refinement](ENVIRONMENT_DIAGNOSTICS.md) and all blocks below remain historical evidence, not current installation instructions.
 
 ## Historical command-specific installation record
 

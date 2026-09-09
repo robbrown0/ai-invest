@@ -207,12 +207,13 @@ count=0
                                 capture_output=True, env=W.CLEAN_ENV, timeout=10)
         self.assertEqual(result.returncode, 0, 'Reviewed policy failed installed visudo parser')
 
-    def test_digest_exact_arguments_and_single_command_scope(self):
+    def test_digest_exact_arguments_and_single_executable_scope(self):
         text = POLICY.read_text()
         digest = hashlib.sha256((ROOT / 'scripts/qualification/run_operator_preflight.py').read_bytes()).hexdigest()
         lines = [line for line in text.splitlines() if line and (not line.startswith('#') or line.startswith('#1000 '))]
         self.assertEqual(lines[0], 'Cmnd_Alias AI_INVEST_DIAGNOSTIC = sha256:' + digest +
-                         ' /usr/local/sbin/ai-invest-operator-preflight --diagnostic')
+                         ' /usr/local/sbin/ai-invest-operator-preflight --diagnostic, sha256:' + digest +
+                         ' /usr/local/sbin/ai-invest-operator-preflight --crash-test')
         self.assertEqual(lines[-1], '#1000 ALL=(root:root) PASSWD: NOSETENV: AI_INVEST_DIAGNOSTIC')
         self.assertTrue(all(line.startswith('Defaults!AI_INVEST_DIAGNOSTIC ') for line in lines[1:-1]))
         self.assertNotIn('*', '\n'.join(lines))
