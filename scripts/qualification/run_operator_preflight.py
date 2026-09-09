@@ -20,9 +20,12 @@ INSTALLED = Path('/usr/local/sbin/ai-invest-operator-preflight')
 LIB = Path('/usr/local/libexec/ai-invest')
 HELPER = LIB / 'operator_preflight.py'
 HOST_ID = LIB / 'host-id'
-RESULT = Path('/var/tmp/ai-invest-operator-preflight.json')
-HELPER_COMMIT = 'ff75739e4bd420cd17104e34e1eb2b1cdcd54e22'
-HELPER_SHA256 = 'a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd'
+ORDINARY_RESULT = Path('/var/tmp/ai-invest-operator-preflight.json')
+RESULT = ORDINARY_RESULT
+DIAGNOSTIC_RESULT = Path('/var/tmp/ai-invest-operator-diagnostic.json')
+HELPER_BASELINE_COMMIT = 'ff75739e4bd420cd17104e34e1eb2b1cdcd54e22'
+HELPER_BASELINE_SHA256 = 'a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd'
+HELPER_SHA256 = 'a47681dbf53676d85d9e4d4c228d61b8eb337ede30082dea9e9b6891d527cfe6'
 CLEAN_ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C', 'LC_ALL': 'C'}
 PLAN_BOOL = {'local_nonrotational_block_backing', 'capacity_margin_pass',
              'root_owned_nonwritable_ancestors', 'targets_absent', 'mount_parent_same_filesystem'}
@@ -31,6 +34,13 @@ OP_BOOL = {'root_operator', 'direct_virtual_console', 'cpu_limit_bounded', 'core
            'core_hard_zero', 'mount_namespace_differs_from_visible_pid1',
            'pid_namespace_matches_visible_pid1', 'reviewed_apport_handler', 'reviewed_core_pattern'}
 OP_LIMIT = {'memory_max', 'memory_swap_max', 'memory_swap_current', 'pids_max'}
+DIAGNOSTIC_CHECKS = frozenset({
+    'cgroup_membership', 'memory_max', 'memory_swap_max', 'memory_swap_current',
+    'pids_max', 'cpu_max', 'rlimit_core', 'tty_identity', 'mount_namespace',
+    'pid_namespace', 'apport_handler', 'core_pattern', 'root_operator',
+    'operator_evaluation', 'arguments', 'result_file', 'helper_integrity',
+    'host_context', 'plan_preflight', 'scope_launch', 'report_validation', 'result_publication',
+})
 
 
 class Rejected(Exception):
@@ -144,7 +154,11 @@ def require_host(scoped=False):
                             for field in fields[6:fields.index('-')]))
 
 
-def failure():
+def failure(diagnostic=False, check='report_validation'):
+    if diagnostic:
+        require(type(check) is str and check in DIAGNOSTIC_CHECKS)
+        return {'mode': 'diagnostic', 'checks_passed': False, 'failed_checks': [check],
+                'secret_entry_authorized': False, 'runtime_crash_suppression_qualified': False}
     return {'mode': 'operator', 'checks_passed': False, 'error': 'metadata_unavailable',
             'secret_entry_authorized': False, 'runtime_crash_suppression_qualified': False}
 
@@ -152,6 +166,15 @@ def failure():
 def validate_report(report):
     require(type(report) is dict)
     base = {'mode', 'checks_passed', 'secret_entry_authorized', 'runtime_crash_suppression_qualified'}
+    if report.get('mode') == 'diagnostic':
+        require(set(report) == base | {'failed_checks'})
+        failures = report.get('failed_checks')
+        require(type(failures) is list and len(failures) <= 1)
+        require(all(type(check) is str and check in DIAGNOSTIC_CHECKS for check in failures))
+        require(type(report.get('checks_passed')) is bool and report['checks_passed'] == (not failures))
+        require(report.get('secret_entry_authorized') is False
+                and report.get('runtime_crash_suppression_qualified') is False)
+        return report
     require(report.get('mode') in ('plan', 'operator') and type(report.get('checks_passed')) is bool)
     require(report.get('secret_entry_authorized') is False
             and report.get('runtime_crash_suppression_qualified') is False)
@@ -235,57 +258,88 @@ def save_result(fd, report, publish=False):
     if publish:
         os.fchmod(fd, 0o644)  # Only allowlisted non-secret JSON is now readable over SSH.
         os.fsync(fd)
-        print('A new sanitized result is ready at /var/tmp/ai-invest-operator-preflight.json.')
+        if report['mode'] == 'diagnostic':
+            print('A new sanitized diagnostic result is ready.')
+        else:
+            print('A new sanitized result is ready at /var/tmp/ai-invest-operator-preflight.json.')
 
 
-def scope_command(identity):
-    return ['/usr/bin/systemd-run', '--scope', '--unit=ai-invest-operator-preflight',
+def scope_command(identity, diagnostic=False):
+    command = ['/usr/bin/systemd-run', '--scope', '--unit=ai-invest-operator-preflight',
             '-p', 'MemoryMax=2G', '-p', 'MemorySwapMax=0', '-p', 'TasksMax=32', '-p', 'CPUQuota=100%',
             '/usr/bin/unshare', '--mount', '--propagation', 'private',
             '/usr/bin/env', '-i', 'PATH=/usr/sbin:/usr/bin:/sbin:/bin', 'LANG=C', 'LC_ALL=C',
             '/bin/bash', '--noprofile', '--norc', '-c',
             'set -eu; ulimit -Sc 0; ulimit -Hc 0; exec /usr/bin/python3 -I -B "$1" --scoped "$2"',
             'ai-invest-preflight', str(INSTALLED), identity]
+    if diagnostic:
+        command[-4] = command[-4].replace(' --scoped ', ' --scoped-diagnostic ')
+    return command
 
 
 def main():
+    global RESULT
     fd = None
     scoped = False
+    diagnostic = len(sys.argv) > 1 and sys.argv[1] in ('--diagnostic', '--scoped-diagnostic')
+    RESULT = DIAGNOSTIC_RESULT if diagnostic else ORDINARY_RESULT
+    stage = 'root_operator'
     report = failure()
     try:
         require(os.geteuid() == 0)
-        require(sys.argv[1:] == [] or (len(sys.argv) == 3 and sys.argv[1] == '--scoped'))
+        stage = 'arguments'
+        require(sys.argv[1:] in ([], ['--diagnostic']) or
+                (len(sys.argv) == 3 and sys.argv[1] in ('--scoped', '--scoped-diagnostic')))
         scoped = len(sys.argv) == 3
+        stage = 'rlimit_core'
         resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
         os.umask(0o077)
+        stage = 'result_file'
         fd = open_scoped_result(sys.argv[2]) if scoped else create_result()
+        stage = 'tty_identity'
         require_console()
+        stage = 'helper_integrity'
         source = trusted_helper()
         os.environ.clear()
         os.environ.update(CLEAN_ENV)
+        stage = 'host_context'
         require_host(scoped)
+        stage = 'plan_preflight'
         if scoped:
             require(invoke_helper(source, 'plan')['checks_passed'])
-            report = invoke_helper(source, 'operator')
+            stage = 'report_validation'
+            report = invoke_helper(source, 'diagnostic' if diagnostic else 'operator')
         else:
             report = invoke_helper(source, 'plan')
             if report['checks_passed']:
                 info = os.fstat(fd)
-                save_result(fd, failure())
-                completed = subprocess.run(scope_command(f'{info.st_dev}:{info.st_ino}'),
+                stage = 'scope_launch'
+                save_result(fd, failure(diagnostic, stage))
+                completed = subprocess.run(scope_command(f'{info.st_dev}:{info.st_ino}', diagnostic),
                                            env=CLEAN_ENV, check=False)
+                stage = 'report_validation'
                 os.lseek(fd, 0, os.SEEK_SET)
                 report = validate_report(json.loads(os.read(fd, 8193)))
-                require(report['mode'] == 'operator'
+                require(report['mode'] == ('diagnostic' if diagnostic else 'operator')
                         and completed.returncode == (0 if report['checks_passed'] else 1))
+            elif diagnostic:
+                report = failure(True, 'plan_preflight')
+        stage = 'result_publication'
         save_result(fd, report, publish=not scoped)
         return 0 if report['checks_passed'] else 1
     except Exception:
+        saved = False
         if fd is not None:
             try:
-                save_result(fd, failure(), publish=not scoped)
+                save_result(fd, failure(diagnostic, stage), publish=not scoped)
+                saved = True
             except Exception:
                 pass  # An incomplete/private file is not a published result.
+        if diagnostic and not saved:
+            try:
+                print(json.dumps(failure(True, stage), sort_keys=True))
+            except OSError:
+                pass
         print('Preflight refused. No secret entry authorized. Existing result files are never replaced.', file=sys.stderr)
         return 1
     except KeyboardInterrupt:

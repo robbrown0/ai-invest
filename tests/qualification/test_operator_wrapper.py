@@ -82,8 +82,8 @@ class CommandTests(unittest.TestCase):
     def test_original_helper_pin_matches_committed_baseline(self):
         source = (ROOT / 'scripts/qualification/operator_preflight.py').read_bytes()
         self.assertEqual(hashlib.sha256(source).hexdigest(), WRAPPER.HELPER_SHA256)
-        committed = subprocess.check_output(['git', 'show', WRAPPER.HELPER_COMMIT + ':scripts/qualification/operator_preflight.py'], cwd=ROOT)
-        self.assertEqual(source, committed)
+        committed = subprocess.check_output(['git', 'show', WRAPPER.HELPER_BASELINE_COMMIT + ':scripts/qualification/operator_preflight.py'], cwd=ROOT)
+        self.assertEqual(hashlib.sha256(committed).hexdigest(), WRAPPER.HELPER_BASELINE_SHA256)
 
 
 class ReportTests(unittest.TestCase):
@@ -244,7 +244,8 @@ class OutputTests(unittest.TestCase):
 
 
 class FlowTests(unittest.TestCase):
-    def exercise(self, args=(), plan_pass=True, scoped=False, scope_code=0, save_error=False):
+    def exercise(self, args=(), plan_pass=True, scoped=False, scope_code=0, save_error=False,
+                 candidate=None, guard_failure=None):
         reports = []
         stream = io.StringIO()
         with ExitStack() as stack:
@@ -255,10 +256,12 @@ class FlowTests(unittest.TestCase):
             stack.enter_context(patch.object(WRAPPER.os, 'umask'))
             stack.enter_context(patch.object(WRAPPER.os, 'close'))
             stack.enter_context(patch.object(WRAPPER.os, 'lseek'))
-            stack.enter_context(patch.object(WRAPPER.os, 'read', return_value=json.dumps(good_report()).encode()))
+            stack.enter_context(patch.object(WRAPPER.os, 'read', return_value=json.dumps(
+                good_report() if candidate is None else candidate).encode()))
             stack.enter_context(patch.object(WRAPPER.os, 'fstat', return_value=SimpleNamespace(st_dev=1, st_ino=2)))
             for name in ('require_console', 'require_host'):
-                stack.enter_context(patch.object(WRAPPER, name))
+                stack.enter_context(patch.object(WRAPPER, name,
+                    side_effect=OSError('SYNTHETIC_PRIVATE_DETAIL') if guard_failure == name else None))
             stack.enter_context(patch.object(WRAPPER, 'create_result', return_value=100))
             stack.enter_context(patch.object(WRAPPER, 'open_scoped_result', return_value=100))
             stack.enter_context(patch.object(WRAPPER, 'trusted_helper', return_value=b'checked'))

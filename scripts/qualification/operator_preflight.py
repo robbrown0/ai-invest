@@ -11,6 +11,7 @@ import re
 import resource
 import stat
 import subprocess
+import sys
 
 GIB = 1024 ** 3
 VOLUME_BYTES = 64 * GIB
@@ -91,7 +92,27 @@ def plan_ok(snapshot: dict) -> bool:
     return all(snapshot.get(key) is True for key in checks)
 
 
-def operator_snapshot() -> dict:
+METADATA_CHECKS = (
+    'cgroup_membership', 'rlimit_core', 'tty_identity', 'cpu_max', 'memory_max',
+    'memory_swap_max', 'memory_swap_current', 'pids_max', 'mount_namespace',
+    'pid_namespace', 'apport_handler', 'core_pattern', 'root_operator',
+)
+
+
+class MetadataUnavailable(ValueError):
+    def __init__(self, check):
+        super().__init__()  # No exception detail is retained in the public diagnostic.
+        self.check = check if check in METADATA_CHECKS else 'operator_evaluation'
+
+
+def metadata(check, operation):
+    try:
+        return operation()
+    except Exception:
+        raise MetadataUnavailable(check) from None
+
+
+def cgroup_directory():
     cgroups = Path("/proc/self/cgroup").read_text().splitlines()
     paths = [line[3:] for line in cgroups if line.startswith("0::")]
     if len(paths) != 1:
@@ -100,24 +121,29 @@ def operator_snapshot() -> dict:
     group = (root / paths[0].lstrip("/")).resolve()
     if not group.is_relative_to(root):
         raise ValueError("cgroup outside expected hierarchy")
-    soft, hard = resource.getrlimit(resource.RLIMIT_CORE)
-    ttys = [os.ttyname(fd) if os.isatty(fd) else "" for fd in (0, 1, 2)]
-    quota = (group / "cpu.max").read_text().split()
-    finite_cpu = len(quota) == 2 and quota[0].isdigit() and quota[1].isdigit()
+    return group
+
+
+def operator_snapshot() -> dict:
+    group = metadata('cgroup_membership', cgroup_directory)
+    soft, hard = metadata('rlimit_core', lambda: resource.getrlimit(resource.RLIMIT_CORE))
+    ttys = metadata('tty_identity', lambda: [os.ttyname(fd) if os.isatty(fd) else "" for fd in (0, 1, 2)])
+    quota = metadata('cpu_max', lambda: (group / "cpu.max").read_text().split())
+    finite_cpu = metadata('cpu_max', lambda: len(quota) == 2 and quota[0].isdigit() and quota[1].isdigit())
     return {
-        "root_operator": os.geteuid() == 0,
-        "direct_virtual_console": len(set(ttys)) == 1 and bool(re.fullmatch(r"/dev/tty[1-9][0-9]*", ttys[0])),
-        "memory_max": (group / "memory.max").read_text().strip(),
-        "memory_swap_max": (group / "memory.swap.max").read_text().strip(),
-        "memory_swap_current": (group / "memory.swap.current").read_text().strip(),
-        "pids_max": (group / "pids.max").read_text().strip(),
-        "cpu_limit_bounded": finite_cpu and 0 < int(quota[0]) <= 2 * int(quota[1]),
+        "root_operator": metadata('root_operator', lambda: os.geteuid() == 0),
+        "direct_virtual_console": metadata('tty_identity', lambda: len(set(ttys)) == 1 and bool(re.fullmatch(r"/dev/tty[1-9][0-9]*", ttys[0]))),
+        "memory_max": metadata('memory_max', lambda: (group / "memory.max").read_text().strip()),
+        "memory_swap_max": metadata('memory_swap_max', lambda: (group / "memory.swap.max").read_text().strip()),
+        "memory_swap_current": metadata('memory_swap_current', lambda: (group / "memory.swap.current").read_text().strip()),
+        "pids_max": metadata('pids_max', lambda: (group / "pids.max").read_text().strip()),
+        "cpu_limit_bounded": metadata('cpu_max', lambda: finite_cpu and 0 < int(quota[0]) <= 2 * int(quota[1])),
         "core_soft_zero": soft == 0,
         "core_hard_zero": hard == 0,
-        "mount_namespace_differs_from_visible_pid1": os.stat("/proc/self/ns/mnt").st_ino != os.stat("/proc/1/ns/mnt").st_ino,
-        "pid_namespace_matches_visible_pid1": os.stat("/proc/self/ns/pid").st_ino == os.stat("/proc/1/ns/pid").st_ino,
-        "reviewed_apport_handler": hashlib.sha256(Path("/usr/share/apport/apport").read_bytes()).hexdigest() == APPORT_SHA256,
-        "reviewed_core_pattern": Path("/proc/sys/kernel/core_pattern").read_text().strip() == CORE_PATTERN,
+        "mount_namespace_differs_from_visible_pid1": metadata('mount_namespace', lambda: os.stat("/proc/self/ns/mnt").st_ino != os.stat("/proc/1/ns/mnt").st_ino),
+        "pid_namespace_matches_visible_pid1": metadata('pid_namespace', lambda: os.stat("/proc/self/ns/pid").st_ino == os.stat("/proc/1/ns/pid").st_ino),
+        "reviewed_apport_handler": metadata('apport_handler', lambda: hashlib.sha256(Path("/usr/share/apport/apport").read_bytes()).hexdigest() == APPORT_SHA256),
+        "reviewed_core_pattern": metadata('core_pattern', lambda: Path("/proc/sys/kernel/core_pattern").read_text().strip() == CORE_PATTERN),
     }
 
 
@@ -138,10 +164,52 @@ def operator_ok(snapshot: dict) -> bool:
     )
 
 
+def diagnostic_report():
+    failed = []
+    try:
+        snapshot = operator_snapshot()
+        checks = (
+            ('root_operator', lambda: snapshot['root_operator'] is True),
+            ('tty_identity', lambda: snapshot['direct_virtual_console'] is True),
+            ('cpu_max', lambda: snapshot['cpu_limit_bounded'] is True),
+            ('rlimit_core', lambda: snapshot['core_soft_zero'] is True and snapshot['core_hard_zero'] is True),
+            ('mount_namespace', lambda: snapshot['mount_namespace_differs_from_visible_pid1'] is True),
+            ('pid_namespace', lambda: snapshot['pid_namespace_matches_visible_pid1'] is True),
+            ('apport_handler', lambda: snapshot['reviewed_apport_handler'] is True),
+            ('core_pattern', lambda: snapshot['reviewed_core_pattern'] is True),
+            ('memory_max', lambda: snapshot['memory_max'].isdigit() and 0 < int(snapshot['memory_max']) <= MAX_MEMORY),
+            ('pids_max', lambda: snapshot['pids_max'].isdigit() and 0 < int(snapshot['pids_max']) <= 64),
+            ('memory_swap_max', lambda: snapshot['memory_swap_max'] == '0'),
+            ('memory_swap_current', lambda: snapshot['memory_swap_current'] == '0'),
+        )
+        for name, operation in checks:
+            if not metadata(name, operation):
+                failed = [name]
+                break
+        if not failed and not operator_ok(snapshot):
+            failed = ['operator_evaluation']
+    except MetadataUnavailable as error:
+        failed = [error.check]
+    except Exception:
+        failed = ['operator_evaluation']
+    return {'mode': 'diagnostic', 'checks_passed': not failed, 'failed_checks': failed,
+            'secret_entry_authorized': False, 'runtime_crash_suppression_qualified': False}
+
+
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == 'diagnostic':
+        report = diagnostic_report() if len(sys.argv) == 2 else {
+            'mode': 'diagnostic', 'checks_passed': False, 'failed_checks': ['operator_evaluation'],
+            'secret_entry_authorized': False, 'runtime_crash_suppression_qualified': False}
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report['checks_passed'] else 1
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("plan", "operator"))
+    parser.add_argument("mode", choices=("plan", "operator", "diagnostic"))
     args = parser.parse_args()
+    if args.mode == 'diagnostic':
+        report = diagnostic_report()
+        print(json.dumps(report, sort_keys=True))
+        return 0 if report['checks_passed'] else 1
     try:
         snapshot = plan_snapshot() if args.mode == "plan" else operator_snapshot()
         passed = plan_ok(snapshot) if args.mode == "plan" else operator_ok(snapshot)

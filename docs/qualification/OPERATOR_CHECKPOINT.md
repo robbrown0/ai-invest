@@ -1,23 +1,34 @@
-# Human Operator Checkpoint — Installed Non-Secret Wrapper
+# Human Operator Checkpoint — Bounded Non-Secret Diagnostics
 
-**Status:** Wrapper prepared and reviewed, NOT installed; runtime prerequisites unqualified; Gate 2 NOT PASSED.
-**Purpose:** Replace the long console command with one reviewed local command while preserving every existing preflight check.
+**Status:** Diagnostic amendment prepared; human upgrade/runtime diagnostic NOT RUN by agents; Gate 2 NOT PASSED.
+**Purpose:** Identify a failed metadata check without weakening controls or disclosing its underlying values.
 
-## Scope and trust boundary
+## Recorded human result and scope
 
-The [wrapper](../../scripts/qualification/run_operator_preflight.py) is a standalone Python executable, not a shell script. It uses an isolated interpreter and invokes the unchanged [committed helper](../../scripts/qualification/operator_preflight.py) from a root-owned, hash-pinned installed snapshot. It does not duplicate its capacity/risk predicates. The approved helper comes from commit `ff75739e4bd420cd17104e34e1eb2b1cdcd54e22`, SHA-256 `a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd`.
+The owner reports running the previous wrapper at the intended physical Linux console without entering any project secret. The returned ordinary result was:
 
-Reviewed wrapper SHA-256: `82d6d8ec35cf7d46dfd02e76f17f9dbddae4ac7eb00ab0d8972a833484716c42`. Verify the installed copy against this value before executing it. See [independent wrapper review](WRAPPER_REVIEW.md) and [tests](../../tests/qualification/test_operator_wrapper.py). Review the current branch/PR and exact source before installation; hashes are evidence of an agreed snapshot, not a substitute for review.
+```json
+{"checks_passed":false,"error":"metadata_unavailable","mode":"operator","runtime_crash_suppression_qualified":false,"secret_entry_authorized":false}
+```
 
-No LUKS/OpenBao/broker secret is accepted or requested. No cryptographic initialization, key creation, service installation, global swap/crash-handler/Docker change or unrelated workload action exists in this wrapper. Local sudo authentication is handled only by the human, outside the assistant. Never share the sudo password or any other secret.
+This is preserved failed evidence, not a diagnosed cause. It may originate from a wrapper guard or helper metadata acquisition. We have not inferred which, inspected secret material, or remotely rerun a privileged operator session. Earlier records that say the wrapper was not installed describe the historical pre-handoff state, not the owner's subsequent action.
 
-## 1. Human installation over SSH, after review
+Ordinary invocation and its JSON shape are unchanged. New explicit diagnostic mode returns only fixed symbolic identifiers, never observations, file contents, identifiers, environment/process data, exception strings/types, credentials, secrets or command output. It retains all TTY, host, provenance, capacity, scope, no-swap and core-limit checks. Diagnostic mode does not repair failures, skip the plan, launch an arbitrary command, or authorize secret entry.
 
-This is the only long step and may be pasted over SSH. Do NOT run it through an assistant-connected terminal. The checkout is intentionally fixed to `/home/rob/ai-invest` for this host-specific qualification. Changing location requires review, not a command-line override. Keep the checkout on `phase3/synthetic-qualification` and do not edit it concurrently with installation or execution.
+## Reviewed sources and human-only upgrade
 
-The repository currently has group-writable paths. The commands below tighten only the exact project paths read by the wrapper, without recursion or changes to unrelated workloads. No group/other-writable exception is permitted. First installation refuses existing destination files/directories or symlinks; do not overwrite a previous installation without reviewing it. Shared installation parents must be canonical root-owned mode 0755. The project libexec directory is new and root-only.
+Review the [helper](../../scripts/qualification/operator_preflight.py), [wrapper](../../scripts/qualification/run_operator_preflight.py), [diagnostic tests](../../tests/qualification/test_operator_diagnostics.py) and [independent diagnostic review](DIAGNOSTIC_REVIEW.md).
 
-Run this complete block from your SSH terminal after fetching/reviewing the pushed commit:
+| Source | New reviewed SHA-256 |
+| --- | --- |
+| Helper | `a47681dbf53676d85d9e4d4c228d61b8eb337ede30082dea9e9b6891d527cfe6` |
+| Wrapper | `8a490c2345b37266da7d8ec2d295247f6acc6c04f02a45a329f4532b5f45f29d` |
+
+The old installed wrapper is expected to match commit `0c8eb0a04f8e31796c4d4f32f944818a478ede43`, wrapper hash `82d6d8ec35cf7d46dfd02e76f17f9dbddae4ac7eb00ab0d8972a833484716c42`, and original helper hash `a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd` (baseline helper commit `ff75739e4bd420cd17104e34e1eb2b1cdcd54e22`). The wrapper pins the new helper content; the old baseline remains for regression comparison, not as a claim that the amended helper is unchanged.
+
+**Before console use, the human must upgrade both installed snapshots.** The existing installation intentionally refuses modified checkout/helper bytes. Do not run an old installed wrapper against the changed checkout and mistake its integrity refusal for a new metadata diagnosis.
+
+After reviewing the pushed amendment, use your own SSH terminal for this complete guarded upgrade. Ensure the previous wrapper/scope has finished; do not upgrade concurrently with a run. No assistant-connected terminal may receive sudo authentication. The commands require the exact known old installation and stop on discrepancies. They preserve the root-only host marker and the ordinary result file; they do not re-enroll the host, initialize storage, or run the wrapper.
 
 ```bash
 (
@@ -26,91 +37,95 @@ Run this complete block from your SSH terminal after fetching/reviewing the push
   test "$(pwd -P)" = /home/rob/ai-invest
   test "$(git branch --show-current)" = phase3/synthetic-qualification
   test -z "$(git status --porcelain)"
-
   for path in . .git .git/config .git/HEAD scripts scripts/qualification \
-    scripts/qualification/operator_preflight.py \
-    scripts/qualification/run_operator_preflight.py; do
+    scripts/qualification/operator_preflight.py scripts/qualification/run_operator_preflight.py; do
     test ! -L "$path"
   done
   chmod go-w . .git .git/config .git/HEAD scripts scripts/qualification \
-    scripts/qualification/operator_preflight.py \
-    scripts/qualification/run_operator_preflight.py
+    scripts/qualification/operator_preflight.py scripts/qualification/run_operator_preflight.py
 
-  for path in /usr /usr/local /usr/local/sbin; do
+  for path in /usr /usr/local /usr/local/sbin /usr/local/libexec; do
     test ! -L "$path"
+    test -d "$path"
     test "$(stat -c '%u:%a' "$path")" = 0:755
   done
-  test ! -L /usr/local/libexec
-  if test -e /usr/local/libexec; then
-    test -d /usr/local/libexec
-    test "$(stat -c '%u:%a' /usr/local/libexec)" = 0:755
-  fi
-  sudo test ! -e /usr/local/libexec/ai-invest
   sudo test ! -L /usr/local/libexec/ai-invest
-  sudo test ! -e /usr/local/sbin/ai-invest-operator-preflight
-  sudo test ! -L /usr/local/sbin/ai-invest-operator-preflight
-
-  sudo install -d -o root -g root -m 0700 /usr/local/libexec/ai-invest
-  sudo install -o root -g root -m 0644 scripts/qualification/operator_preflight.py \
-    /usr/local/libexec/ai-invest/operator_preflight.py
-  sudo install -o root -g root -m 0600 /etc/machine-id \
-    /usr/local/libexec/ai-invest/host-id
-  sudo install -o root -g root -m 0755 scripts/qualification/run_operator_preflight.py \
-    /usr/local/sbin/ai-invest-operator-preflight
-
+  sudo test -d /usr/local/libexec/ai-invest
+  test "$(sudo stat -c '%u:%a' /usr/local/libexec/ai-invest)" = 0:700
+  for path in /usr/local/sbin/ai-invest-operator-preflight \
+    /usr/local/libexec/ai-invest/operator_preflight.py /usr/local/libexec/ai-invest/host-id; do
+    sudo test ! -L "$path"
+    sudo test -f "$path"
+  done
+  test "$(sudo stat -c '%u:%a:%h' /usr/local/sbin/ai-invest-operator-preflight)" = 0:755:1
+  test "$(sudo stat -c '%u:%a:%h' /usr/local/libexec/ai-invest/operator_preflight.py)" = 0:644:1
+  test "$(sudo stat -c '%u:%a:%h' /usr/local/libexec/ai-invest/host-id)" = 0:600:1
   printf '%s\n' \
     '82d6d8ec35cf7d46dfd02e76f17f9dbddae4ac7eb00ab0d8972a833484716c42  /usr/local/sbin/ai-invest-operator-preflight' \
     'a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd  /usr/local/libexec/ai-invest/operator_preflight.py' \
     | sudo sha256sum --check -
+  printf '%s\n' \
+    '8a490c2345b37266da7d8ec2d295247f6acc6c04f02a45a329f4532b5f45f29d  scripts/qualification/run_operator_preflight.py' \
+    'a47681dbf53676d85d9e4d4c228d61b8eb337ede30082dea9e9b6891d527cfe6  scripts/qualification/operator_preflight.py' \
+    | sha256sum --check -
+
+  sudo install -o root -g root -m 0644 scripts/qualification/operator_preflight.py \
+    /usr/local/libexec/ai-invest/operator_preflight.py
+  sudo install -o root -g root -m 0755 scripts/qualification/run_operator_preflight.py \
+    /usr/local/sbin/ai-invest-operator-preflight
+  printf '%s\n' \
+    '8a490c2345b37266da7d8ec2d295247f6acc6c04f02a45a329f4532b5f45f29d  /usr/local/sbin/ai-invest-operator-preflight' \
+    'a47681dbf53676d85d9e4d4c228d61b8eb337ede30082dea9e9b6891d527cfe6  /usr/local/libexec/ai-invest/operator_preflight.py' \
+    | sudo sha256sum --check -
 )
 ```
 
-Stop on any failure; a partially completed installation is not permission to run an unverified copy. Do not print/read/share `host-id`: it is a root-only local copy used to bind this installation to the host where the human performed enrollment. Neither its value nor its digest is included in the result file or Git. It is not a project encryption key, and it is not hardware attestation: cloned machine IDs or compromised host root remain outside this assurance.
+Stop on any mismatch or partial upgrade; do not change the expected hashes to force acceptance. Never read, copy, print or return `host-id`. This is an upgrade of two reviewed metadata programs, not a secrets/key-management bootstrap. No installation/upgrade was performed by the agents.
 
-## 2. At the physical Linux virtual console
+## Short physical-console command
 
-Use the intended host's real `/dev/ttyN` console, with no recording, SSH, GUI terminal, tmux/screen or PTY relay. Then type only:
-
-```bash
-sudo /usr/local/sbin/ai-invest-operator-preflight
-```
-
-Do not redirect or pipe this command. It accepts no public arguments. It rejects non-root invocation, PTYs, SSH/GUI/session indicators, mismatched controlling-terminal devices, wrong host enrollment, containers/chroots/unexpected namespaces, wrong checkout/branch/origin, changed source/helper bytes, unsafe ownership/permissions and inappropriate symlinks.
-
-The wrapper runs the existing plan check first and stops on failure. If it passes, it invokes the same dedicated systemd scope with `MemoryMax=2G`, `MemorySwapMax=0`, `TasksMax=32`, `CPUQuota=100%`, `unshare --mount --propagation private`, clean environment, isolated Python and zero soft/hard core limits. It rechecks plan inside the scope before running the operator helper. Private mount propagation is also checked from runtime mount metadata. No `--pty`, output pipe, privilege bypass or arbitrary command override is added.
-
-**Sudo limitation:** local sudo policy may itself allocate a PTY. In that case this invocation MUST fail, even from a physical console. The wrapper does not disable `use_pty`, reopen descriptors to disguise a PTY, or weaken the existing checks. A failure is useful evidence and requires a separately reviewed input-path design, not forced success.
-
-## 3. Back over SSH: retrieve only the sanitized result
-
-Only after this console invocation prints `A new sanitized result is ready at /var/tmp/ai-invest-operator-preflight.json.`, retrieve its result. A refusal without that message does not establish a new safe artifact: do not read or return an unknown pre-existing file, symlink or hardlink. Before `cat`, verify that the path is a regular, root-owned mode 0644 file with one link:
+On the intended physical Linux `/dev/ttyN` console, with no recording, SSH, GUI terminal or multiplexer, run:
 
 ```bash
-test ! -L /var/tmp/ai-invest-operator-preflight.json && \
-  test "$(stat -c '%u:%a:%h:%F' /var/tmp/ai-invest-operator-preflight.json)" = '0:644:1:regular file' && \
-cat /var/tmp/ai-invest-operator-preflight.json
+sudo /usr/local/sbin/ai-invest-operator-preflight --diagnostic
 ```
 
-The fixed path is created exclusively with no symlink following, initially root-owned mode 0600. The scoped writer must match the already-open inode, ownership, link count and private permissions. The parent validates the exact JSON schema and scope exit status before publishing only allowlisted non-secret metadata as root-owned mode 0644. A scope failure cannot publish successful metadata. No environment, history, terminal input, host identifier, arbitrary diagnostic string or unrelated service/process information is allowed into the report. Python-level stdout capture leaves the actual TTY descriptors unchanged for the helper's original checks.
+Do not redirect or pipe the invocation. Sudo may allocate a PTY: if so, `tty_identity` is an expected possible refusal, not a reason to disable sudo protections or reopen a console descriptor. It is an example, NOT the diagnosed cause of the owner's prior failure.
 
-Return only this JSON and whether you used the intended physical host console without recording. Both `secret_entry_authorized` and `runtime_crash_suppression_qualified` MUST remain `false`, including on successful metadata checks. An early prerequisite failure may contain only the existing sanitized `metadata_unavailable` report. Non-root invocation, an unsafe/existing output target or an I/O failure may produce no new readable file. Never substitute an old result for this run; permission denied or incomplete/private output is NOT success.
+The diagnostic executes the same bounded scope: `MemoryMax=2G`, `MemorySwapMax=0`, `TasksMax=32`, `CPUQuota=100%`, private mount propagation, clean environment and zero hard/soft core limits. Both outside and inside the scope the plan must pass before dependent work. Underlying console descriptors stay intact for the original TTY checks. Systemd may display its own console status; none of that output enters the diagnostic JSON. Return only the bounded JSON, not terminal transcripts or command diagnostics.
 
-The wrapper never overwrites an existing result. For a later intentional retry, first verify that the target is a known prior wrapper metadata artifact (not an unexpected file/symlink/hardlink), preserve its non-secret result as evidence, ensure no preflight scope/process is running, and have the human remove only this exact old result. If its origin is unknown, stop and investigate without reading or returning its contents:
+## Sanitized result and retrieval
+
+Diagnostic mode writes a separate fixed path, `/var/tmp/ai-invest-operator-diagnostic.json`, with the same exclusive/no-follow creation, inode/ownership/link checks, private working permissions and parent-validated publication used by ordinary mode. The old ordinary result is untouched. Existing targets are never overwritten. A maximum of one failed-check identifier is returned; zero identifiers means all executed metadata checks passed. First unavailable-source evidence takes precedence over later predicate evaluation, and a first failure does not assess every other check.
+
+Example failure shape only; the actual identifier will depend on the human run:
+
+```json
+{"checks_passed":false,"failed_checks":["tty_identity"],"mode":"diagnostic","runtime_crash_suppression_qualified":false,"secret_entry_authorized":false}
+```
+
+A fully passing metadata diagnostic has `checks_passed: true` and `failed_checks: []`, with both authorization flags still false. Failure returns nonzero. No `observations`, raw `error`, exception text, paths, metadata values or arbitrary strings are permitted in this schema.
+
+After the console prints `A new sanitized diagnostic result is ready.`, retrieve that new result over SSH:
 
 ```bash
-sudo unlink -- /var/tmp/ai-invest-operator-preflight.json
+test ! -L /var/tmp/ai-invest-operator-diagnostic.json && \
+  test "$(LC_ALL=C stat -c '%u:%a:%h:%F' /var/tmp/ai-invest-operator-diagnostic.json)" = '0:644:1:regular file' && \
+  cat /var/tmp/ai-invest-operator-diagnostic.json
 ```
 
-This removes the old local metadata file, not any project storage. Do not remove it during an active run or delete any broader directory. An interrupted run leaves no completed published assurance; investigate before retrying.
+If safe creation/publication is impossible, the console can display the same bounded diagnostic JSON instead; no new file is claimed. Do not read an unknown/pre-existing target or treat a stale/private/incomplete file as a new result. For a later retry, preserve only a known prior diagnostic artifact, confirm the prior run is finished, and let the human remove that exact old diagnostic file with `sudo unlink -- /var/tmp/ai-invest-operator-diagnostic.json`. Never delete the ordinary result or a broader path as part of this amendment. Unknown files/symlinks/hardlinks require investigation without returning their contents.
 
-## What remains unqualified
+## Complete symbolic allowlist
 
-Automated tests exercise predicates, command construction, tamper rejection, publication and mocked orchestration. They do not install/run this wrapper as root or prove actual scope memory/swap/core behavior. The historical prerequisite failure remains valid. The original [approved storage plan](APPROVED_PREREQUISITES.md) and [operator review](OPERATOR_REVIEW.md) remain historical evidence, not runtime proof.
+Helper source/evaluation identifiers: `cgroup_membership`, `memory_max`, `memory_swap_max`, `memory_swap_current`, `pids_max`, `cpu_max`, `rlimit_core`, `tty_identity`, `mount_namespace`, `pid_namespace`, `apport_handler`, `core_pattern`, `root_operator`, `operator_evaluation`.
 
-Even a successful wrapper result does not authorize secret entry. A separate independently reviewed, bounded non-secret kernel crash/collector test must still prove that synthetic process memory is not retained. Scope existence alone does not qualify that mitigation. Only after actual runtime qualification may a guarded human-only LUKS/OpenBao procedure be finalized. No LUKS/OpenBao initialization is authorized by running this wrapper. Gate 2 remains NOT PASSED; PR #14 stays draft and unmerged.
+Wrapper boundary identifiers: `arguments`, `result_file`, `helper_integrity`, `host_context`, `plan_preflight`, `scope_launch`, `report_validation`, `result_publication`, plus shared `root_operator`, `rlimit_core` and `tty_identity`.
 
-## Repository validation evidence
+`helper_integrity` groups installed/checkout provenance checks; `host_context` groups host-enrollment, container/root/namespace guards; `plan_preflight` groups the existing storage plan. These coarse identifiers deliberately disclose neither paths nor underlying values. They locate the failed boundary rather than proving its cause. No caller can supply additional identifiers, an output path or a generic command.
 
-All 45 qualification tests pass with Python 3.12.3; the independent reviewer also ran all 45 successfully. Four Bash instruction blocks pass `bash -n` syntax checks without execution. Wrapper hashes in these instructions and the independent review match the actual source. Read-only checks confirm the installed wrapper, project libexec directory and result path are absent: nothing was installed or run as a privileged operator.
+## Evidence and gate boundary
 
-Local validation parsed 50 Markdown files, checked 197 local links and checked declaration/fence structure for 9 unchanged Mermaid blocks (not full rendering). Common-secret-pattern scans passed across 66 source files, the index and 91 pre-amendment reachable Git-history blobs. A generic scanner initially flagged a test's false authorization boolean as a credential assignment; the fixture was rewritten as an explicit JSON-shaped dictionary and the unchanged scanner passed. No actual secret was found or introduced. Dedicated SAST/dependency/container scanning and runtime Gate 2 proof remain outstanding; these local checks do not substitute for them.
+The diagnostic regression suite injects failures into all 13 helper acquisition sources, verifies numeric evaluation labeling, rejects unapproved schemas/payloads, checks false authorization flags, and compares ordinary successful/error results with the original committed helper. Independent review is recorded in [DIAGNOSTIC_REVIEW.md](DIAGNOSTIC_REVIEW.md). Earlier [wrapper review](WRAPPER_REVIEW.md), [approved prerequisite assessment](APPROVED_PREREQUISITES.md) and [original operator review](OPERATOR_REVIEW.md) remain historical evidence.
+
+No secret input, LUKS/OpenBao initialization, Alpaca connection, LIVE capability or global configuration change was added. Actual protected operator/core-suppression/storage/service qualification remains outstanding. A diagnostic identifies a failure; it neither fixes it nor passes Gate 2. PR #14 stays draft and unmerged.
