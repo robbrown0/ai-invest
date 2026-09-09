@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3 -I
 """Read-only, non-secret prerequisite checks. Never authorizes secret entry."""
 from __future__ import annotations
 
@@ -51,13 +51,13 @@ def plan_snapshot() -> dict:
     info = os.statvfs("/var/lib")
     total = info.f_blocks * info.f_frsize
     available = info.f_bavail * info.f_frsize
-    mount = command("findmnt", "-n", "-o", "SOURCE,FSTYPE", "--target", "/var/lib").split()
+    mount = command("/usr/bin/findmnt", "-n", "-o", "SOURCE,FSTYPE", "--target", "/var/lib").split()
     if len(mount) != 2:
         raise ValueError("unexpected mount metadata")
     source, fs_type = mount
     local_block = False
     if source.startswith("/dev/") and fs_type == "ext4":
-        rows = command("lsblk", "-s", "-n", "-r", "-o", "TYPE,ROTA,TRAN", source).splitlines()
+        rows = command("/usr/bin/lsblk", "-s", "-n", "-r", "-o", "TYPE,ROTA,TRAN", source).splitlines()
         local_block = local_sata_backing(rows)
     return {
         "filesystem_type": fs_type,

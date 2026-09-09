@@ -1,8 +1,8 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: environment predicate refinement
+## Current checkpoint: inherited PATH independence
 
-The human has now installed the previous policy and reached `operator_environment` at the physical console. Follow the **[current guarded upgrade and short console command](ENVIRONMENT_DIAGNOSTICS.md)**. That document preserves the old pair, updates the executable digest, and reports only a fixed first-failing environment predicate. No accepted environment is widened. Gate 2 and both authorization flags remain false/unpassed. All installation/rollback blocks below are historical and superseded; do not rerun their absent-policy assumptions.
+The latest human result identifies `environment_path`, after TTY, identity and keyset checks passed. Follow the **[current guarded upgrade and short console command](PATH_INDEPENDENCE.md)**. Exact inherited PATH equality is retired because inherited PATH selects no executable; no other environment predicate or sudo permission is relaxed. The three-artifact upgrade preserves prior snapshots and refreshes the exact command digest. Gate 2 remains NOT PASSED and both authorization flags remain false. Earlier [environment refinement](ENVIRONMENT_DIAGNOSTICS.md) and all blocks below remain historical evidence, not current installation instructions.
 
 ## Historical command-specific installation record
 

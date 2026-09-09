@@ -32,7 +32,6 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_each_predicate_independently_fails(self):
         cases = [({'UNAPPROVED_SYNTHETIC': 'not-for-output'}, 'environment_keyset'),
-                 ({'PATH': '/synthetic'}, 'environment_path'),
                  ({'LANG': '\n'}, 'environment_locale'), ({'LC_ALL': '\n'}, 'environment_locale'),
                  ({'TERM': '\n'}, 'environment_term'), ({'HOME': '/synthetic'}, 'environment_home'),
                  ({'USER': 'synthetic'}, 'environment_user'), ({'LOGNAME': 'synthetic'}, 'environment_logname'),
@@ -42,15 +41,15 @@ class EnvironmentTests(unittest.TestCase):
             with self.subTest(symbol=symbol, fixture=list(changes)):
                 self.assert_failure(changes, symbol)
 
-    def test_missing_path_is_not_normalized_to_success(self):
-        self.assert_failure({}, 'environment_path', remove=('PATH',))
+    def test_missing_unused_path_does_not_block_environment(self):
+        self.exercise({'SUDO_GID': '1000'})
 
     def test_missing_gid_fails(self):
         self.assert_failure({}, 'environment_sudo_gid', remove=('SUDO_GID',))
 
     def test_loader_python_shell_and_extra_keys_rejected_without_naming_them(self):
         for key in ('LD_PRELOAD', 'LD_LIBRARY_PATH', 'PYTHONPATH', 'PYTHONHOME',
-                    'PYTHONINSPECT', 'BASH_ENV', 'ENV', 'SHELLOPTS', 'IFS',
+                    'PYTHONINSPECT', 'PYTHONSTARTUP', 'BASH_ENV', 'ENV', 'SHELLOPTS', 'IFS',
                     'BASH_FUNC_synthetic%%', 'SUDO_ASKPASS', 'SUDO_PS1', 'UNAPPROVED_SYNTHETIC'):
             with self.subTest(fixture=key):
                 self.assert_failure({key: 'SYNTHETIC_NOT_FOR_OUTPUT'}, 'environment_keyset')
@@ -73,7 +72,7 @@ class EnvironmentTests(unittest.TestCase):
 
     def test_first_failure_order(self):
         self.assert_failure({'UNAPPROVED_SYNTHETIC': '', 'PATH': '/synthetic', 'HOME': '/synthetic'}, 'environment_keyset')
-        self.assert_failure({'PATH': '/synthetic', 'LANG': '\n', 'HOME': '/synthetic'}, 'environment_path')
+        self.assert_failure({'PATH': '/synthetic', 'LANG': '\n', 'HOME': '/synthetic'}, 'environment_locale')
         self.assert_failure({'LANG': '\n', 'TERM': '\n'}, 'environment_locale')
         self.assert_failure({'HOME': '/synthetic', 'USER': 'synthetic'}, 'environment_home')
 
@@ -138,10 +137,10 @@ class EnvironmentTests(unittest.TestCase):
         self.assertEqual(base.FlowTests().exercise()[0], 0)
         _, _, _, reports, _, _ = base.FlowTests().exercise(
             args=('--diagnostic',), guard_failure='require_console_session',
-            guard_effect=W.EnvironmentRejected('environment_path'))
+            guard_effect=W.EnvironmentRejected('environment_locale'))
         self.assertEqual(reports[-1], W.failure(True, 'console_session'))
 
-    def test_acceptance_equivalent_to_committed_baseline(self):
+    def test_acceptance_matches_baseline_except_retired_path_predicate(self):
         source = subprocess.check_output(['git', 'show', BASELINE + ':scripts/qualification/run_operator_preflight.py'], cwd=ROOT)
         old = {'__name__': 'baseline_not_main'}
         exec(compile(source, '<reviewed-baseline>', 'exec'), old)
@@ -158,9 +157,10 @@ class EnvironmentTests(unittest.TestCase):
                 return False
         with patch.object(W.pwd, 'getpwuid', return_value=SimpleNamespace(pw_gid=1000)):
             for fixture in fixtures:
+                with patch.dict(W.os.environ, {**fixture, 'PATH': W.CLEAN_ENV['PATH']}, clear=True):
+                    expected = accepted(old['require_operator_environment'])
                 with patch.dict(W.os.environ, fixture, clear=True):
-                    self.assertEqual(accepted(W.require_operator_environment),
-                                     accepted(old['require_operator_environment']))
+                    self.assertEqual(accepted(W.require_operator_environment), expected)
 
     def test_policy_change_is_digest_only(self):
         path = 'infrastructure/qualification/ai-invest-operator.sudoers'

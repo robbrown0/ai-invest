@@ -26,7 +26,7 @@ RESULT = ORDINARY_RESULT
 DIAGNOSTIC_RESULT = Path('/var/tmp/ai-invest-operator-diagnostic.json')
 HELPER_BASELINE_COMMIT = 'ff75739e4bd420cd17104e34e1eb2b1cdcd54e22'
 HELPER_BASELINE_SHA256 = 'a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd'
-HELPER_SHA256 = 'a47681dbf53676d85d9e4d4c228d61b8eb337ede30082dea9e9b6891d527cfe6'
+HELPER_SHA256 = 'e3f5e14813b66a216b84c23e9261d3c888a5eacd41a626a8250eba11d435a91c'
 CLEAN_ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C', 'LC_ALL': 'C'}
 # Host-specific qualification policy, not application identity configuration.
 OPERATOR_UID = 1000
@@ -41,7 +41,7 @@ OP_BOOL = {'root_operator', 'direct_virtual_console', 'cpu_limit_bounded', 'core
            'pid_namespace_matches_visible_pid1', 'reviewed_apport_handler', 'reviewed_core_pattern'}
 OP_LIMIT = {'memory_max', 'memory_swap_max', 'memory_swap_current', 'pids_max'}
 ENVIRONMENT_CHECKS = frozenset({
-    'environment_keyset', 'environment_path', 'environment_locale', 'environment_term',
+    'environment_keyset', 'environment_locale', 'environment_term',
     'environment_home', 'environment_user', 'environment_logname', 'environment_mail',
     'environment_shell', 'environment_sudo_gid',
 })
@@ -52,6 +52,7 @@ DIAGNOSTIC_CHECKS = frozenset({
     'operator_evaluation', 'arguments', 'result_file', 'helper_integrity',
     'host_context', 'plan_preflight', 'scope_launch', 'report_validation', 'result_publication',
     'operator_identity', 'operator_environment', 'console_session',
+    'environment_path',  # Historical report compatibility; no active PATH predicate.
 }) | ENVIRONMENT_CHECKS
 
 
@@ -198,7 +199,8 @@ def require_operator_environment():
     allowed = set(CLEAN_ENV) | {'TERM', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'MAIL',
                                 'SUDO_UID', 'SUDO_GID', 'SUDO_USER', 'SUDO_COMMAND'}
     environment_require('environment_keyset', lambda: set(os.environ) <= allowed)
-    environment_require('environment_path', lambda: os.environ.get('PATH') == CLEAN_ENV['PATH'])
+    # Inherited PATH is unused incidental state, never an executable selector.
+    # Absolute executables and explicit CLEAN_ENV protect child work instead.
     for key in ('LANG', 'LC_ALL', 'TERM'):
         environment_require('environment_term' if key == 'TERM' else 'environment_locale',
                             lambda: re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}', os.environ.get(key, '')) is not None)

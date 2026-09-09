@@ -1,5 +1,7 @@
 # Bounded Environment Diagnostic Checkpoint
 
+Historical checkpoint: the subsequent human result identified environment_path. See [PATH independence correction](PATH_INDEPENDENCE.md) for current analysis and upgrade instructions; the original evidence and procedure below are preserved, not current installation instructions.
+
 **Status:** Non-secret refinement prepared; human upgrade/refined runtime result pending; Gate 2 NOT PASSED.
 
 ## Evidence and limits
