@@ -363,7 +363,10 @@ class CurrentCheckpointTests(observation_tests.CheckpointTests):
         text = self.text()
         for path in ('scripts/qualification/crash_canary.py', 'scripts/qualification/run_operator_preflight.py',
                      'infrastructure/qualification/ai-invest-operator.sudoers'):
-            self.assertIn(hashlib.sha256((ROOT / path).read_bytes()).hexdigest(), text)
+            original = subprocess.run(['/usr/bin/git', 'show',
+                '55339d0a222d95f8b58cf373d1de14f4a51bea88:' + path],
+                cwd=ROOT, capture_output=True, check=True, timeout=10).stdout
+            self.assertIn(hashlib.sha256(original).hexdigest(), text)
         self.assertIn('/var/tmp/ai-invest-crash-observation.json', text)
         self.assertNotIn('unlink -- /var/tmp', text)
 

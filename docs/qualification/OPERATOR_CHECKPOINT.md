@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: log-source policy and setup readiness
+## Current checkpoint: focused journal observation
+
+Use only the **[guarded journal upgrade and one console run](JOURNAL_CHECKPOINT.md)** after reviewing [new human evidence and bounded diagnostics](JOURNAL_QUALIFICATION.md) and [independent review](JOURNAL_REVIEW.md). All setup/local checks and the log/store/window categories passed in the owner's last trial, but the journal cause remains unresolved. The next run reports journal_stage/journal_reason without raw data. No working trust mechanism is redesigned; both flags remain false. All installation sections below are historical.
+
+## Previous checkpoint: log-source policy and setup readiness
 
 Use the **[guarded log-source upgrade and one console run](LOG_SOURCE_CHECKPOINT.md)** after reviewing the [confirmed mismatch and trust boundary](LOG_SOURCE_QUALIFICATION.md) and [independent review](LOG_SOURCE_REVIEW.md). The observer will collect fixed setup outcomes before any canary/crash, preserving all old results. Actual corrected host readiness remains unverified. All installation sections below are historical; Gate 2 and both authorization flags remain unchanged.
 

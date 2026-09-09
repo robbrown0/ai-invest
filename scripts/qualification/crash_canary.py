@@ -39,6 +39,13 @@ CATEGORIES = (
     *SETUP_STAGES,
 )
 STATES = frozenset(('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE'))
+JOURNAL_STAGES = frozenset(('not_started', 'initial_change', 'cursor_restore',
+    'filters', 'seek', 'iteration', 'timestamp_boot', 'field_read', 'field_shape',
+    'attribution', 'final_change', 'budget', 'complete'))
+JOURNAL_REASONS = frozenset(('not_started', 'api_error', 'invalidation',
+    'anchor_unavailable', 'unexpected_representation', 'incomplete_field',
+    'attribution_mismatch', 'time_limit', 'record_limit', 'byte_limit',
+    'append_pending', 'positive_match', 'complete'))
 # PR_SET_PDEATHSIG, PR_GET_DUMPABLE, PR_SET_DUMPABLE from linux/prctl.h.
 LIBC = ctypes.CDLL(None, use_errno=True)
 LIBC.prctl.restype = ctypes.c_int
@@ -52,6 +59,12 @@ class SetupIncomplete(Exception):
     pass
 
 
+class JournalIncomplete(Refused):
+    def __init__(self, reason):
+        require(reason in JOURNAL_REASONS)
+        self.reason = reason
+
+
 def require(value):
     if not value:
         raise Refused()
@@ -59,9 +72,13 @@ def require(value):
 
 def report(results=None):
     values = dict.fromkeys(CATEGORIES, 'NOT_TESTED')
+    values.update(journal_stage='not_started', journal_reason='not_started')
     if results:
-        require(type(results) is dict and set(results) <= set(CATEGORIES))
-        require(all(type(value) is str and value in STATES for value in results.values()))
+        require(type(results) is dict and set(results) <= set(values))
+        require(all(type(value) is str and value in
+                    (JOURNAL_STAGES if key == 'journal_stage' else
+                     JOURNAL_REASONS if key == 'journal_reason' else STATES)
+                    for key, value in results.items()))
         values.update(results)
     # Missing collector/input/leakage evidence deliberately prevents overall PASS.
     setup_failures = [name for name in SETUP_STAGES if values[name] == 'FAIL']
@@ -76,7 +93,7 @@ def validate(value):
     require(value['checks_passed'] is False and value['secret_entry_authorized'] is False
             and value['runtime_crash_suppression_qualified'] is False)
     require(value == report(value.get('results')))
-    require(type(value['results']) is dict and set(value['results']) == set(CATEGORIES))
+    require(type(value['results']) is dict and set(value['results']) == set(report()['results']))
     return value
 
 
@@ -504,45 +521,94 @@ class Observation:
 
     def journal(self, child, canary, end):
         reader = self.reader
-        require(reader.process() != 2)  # SD_JOURNAL_INVALIDATE
-        reader.seek_cursor(self.anchor)
-        require(reader._next() and reader.test_cursor(self.anchor))
-        groups = journal_groups(self.boot, os.getpid(), child)
-        for index, group in enumerate(groups):
-            if index:
-                reader.add_disjunction()
-            for key, value in group:
-                reader.add_match(key + '=' + value)
-        reader.seek_monotonic(int(self.start * 1000000), self.boot)
-        size = 0
-        leaked = collector = False
+        stage = 'initial_change'
+        self.journal_diagnostic = {'journal_stage': stage, 'journal_reason': 'api_error'}
         deadline = time.monotonic() + 2
-        for _ in range(256):
-            require(time.monotonic() < deadline)
-            if not reader._next():
-                require(reader.process() != 2)
-                return ('FAIL' if leaked else 'PASS'), collector
-            stamp, boot = reader._get_monotonic()
-            require(boot.hex() == self.boot and stamp >= int(self.start * 1000000))
-            if stamp > int(end * 1000000):
-                return ('FAIL' if leaked else 'PASS'), collector
-            entry = {}
-            # v235 _get_all can suppress enumeration errors. Fixed individual
-            # reads expose errors; KeyError alone denotes an absent field.
-            for key in JOURNAL_FIELDS:
-                try:
-                    entry[key] = reader._get(key)
-                except KeyError:
-                    continue
-                if contains(canary, entry[key]):
-                    return 'FAIL', True
-            hit, active = journal_entry(entry, groups, canary)
-            if hit:
-                return 'FAIL', True  # A later bad record cannot erase detection.
-            leaked, collector = leaked or hit, collector or active
-            size += sum(len(value) for value in entry.values())
-            require(size <= MAX_OBSERVATION)
-        raise Refused()
+
+        def check(condition, reason):
+            if not condition:
+                raise JournalIncomplete(reason)
+
+        def change(final=False):
+            state = reader.process()
+            check(type(state) is int and state in (0, 1, 2), 'unexpected_representation')
+            check(state != 2, 'invalidation')
+            check(not final or state == 0, 'append_pending')
+
+        try:
+            change()
+            stage = 'cursor_restore'
+            reader.seek_cursor(self.anchor)
+            check(reader._next() and reader.test_cursor(self.anchor), 'anchor_unavailable')
+            stage = 'filters'
+            groups = journal_groups(self.boot, os.getpid(), child)
+            for index, group in enumerate(groups):
+                if index:
+                    reader.add_disjunction()
+                for key, value in group:
+                    reader.add_match(key + '=' + value)
+            stage = 'seek'
+            lower, upper = int(self.start * 1000000), int(end * 1000000)
+            reader.seek_monotonic(lower, self.boot)
+            size, collector = 0, False
+            for _ in range(256):
+                stage = 'budget'
+                check(time.monotonic() < deadline, 'time_limit')
+                stage = 'iteration'
+                if not reader._next():
+                    break
+                stage = 'timestamp_boot'
+                timestamp = reader._get_monotonic()
+                check(isinstance(timestamp, tuple) and len(timestamp) == 2, 'unexpected_representation')
+                stamp, boot = timestamp
+                check(type(stamp) is int and type(boot) is bytes and len(boot) == 16,
+                      'unexpected_representation')
+                check(boot.hex() == self.boot, 'attribution_mismatch')
+                check(lower <= stamp and lower <= upper, 'attribution_mismatch')
+                if stamp > upper:
+                    break  # Still process invalidation before any absence PASS.
+                entry = {}
+                # Raw v235 _get returns bytes, NOT high-level Reader conversions.
+                # Only KeyError means missing; never suppress other API errors.
+                for key in JOURNAL_FIELDS:
+                    stage = 'budget'
+                    check(time.monotonic() < deadline, 'time_limit')
+                    stage = 'field_read'
+                    try:
+                        value = reader._get(key)
+                    except KeyError:
+                        continue
+                    stage = 'field_shape'
+                    check(type(value) is bytes, 'unexpected_representation')
+                    # A bounded observed positive dominates later incompleteness.
+                    # This is conservative detection, not proof of attribution.
+                    if contains(canary, value[:MAX_FIELD]):
+                        self.journal_diagnostic = {'journal_stage': stage,
+                                                   'journal_reason': 'positive_match'}
+                        return 'FAIL', True
+                    check(len(key) + 1 + len(value) < MAX_FIELD, 'incomplete_field')
+                    entry[key] = value
+                    size += len(value)
+                    stage = 'budget'
+                    check(size <= MAX_OBSERVATION, 'byte_limit')
+                stage = 'attribution'
+                check('_BOOT_ID' in entry, 'incomplete_field')
+                check(any(all(entry.get(key) == value.encode('ascii') for key, value in group)
+                          for group in groups), 'attribution_mismatch')
+                collector |= any(key in entry for key in ('COREDUMP_PID', 'COREDUMP', 'COREDUMP_FILENAME'))
+            else:
+                stage = 'budget'
+                raise JournalIncomplete('record_limit')
+            stage = 'final_change'
+            change(final=True)
+            stage = 'budget'
+            check(time.monotonic() < deadline, 'time_limit')
+            self.journal_diagnostic = {'journal_stage': 'complete', 'journal_reason': 'complete'}
+            return 'PASS', collector
+        except BaseException as error:
+            reason = error.reason if type(error) is JournalIncomplete else 'api_error'
+            self.journal_diagnostic = {'journal_stage': stage, 'journal_reason': reason}
+            raise JournalIncomplete(reason) from None
 
     def apport(self, child, canary):
         return self.log.observe(child, canary)
@@ -574,6 +640,8 @@ class Observation:
             values['journal'], collector = self.journal(child, canary, end)
         except BaseException:
             pass
+        values.update(getattr(self, 'journal_diagnostic',
+                              {'journal_stage': 'not_started', 'journal_reason': 'not_started'}))
         try:
             values['apport_log'], changed = self.apport(child, canary)
         except BaseException:

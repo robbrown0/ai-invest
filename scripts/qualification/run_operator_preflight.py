@@ -21,8 +21,15 @@ INSTALLED = Path('/usr/local/sbin/ai-invest-operator-preflight')
 LIB = Path('/usr/local/libexec/ai-invest')
 HELPER = LIB / 'operator_preflight.py'
 CRASH_HELPER = LIB / 'crash_canary.py'
-CRASH_SHA256 = '8f981bbf5156bae35309f991eb2239d95b1115fd0bd56c3bb8b50a55eeb87420'
-CRASH_RESULT = Path('/var/tmp/ai-invest-crash-log-source.json')
+CRASH_SHA256 = 'e7416c4068b753f030d7e0a456e42d8479960872bf3b44226a7d55c9a8fb50e3'
+CRASH_RESULT = Path('/var/tmp/ai-invest-crash-journal.json')
+JOURNAL_STAGES = frozenset(('not_started', 'initial_change', 'cursor_restore',
+    'filters', 'seek', 'iteration', 'timestamp_boot', 'field_read', 'field_shape',
+    'attribution', 'final_change', 'budget', 'complete'))
+JOURNAL_REASONS = frozenset(('not_started', 'api_error', 'invalidation',
+    'anchor_unavailable', 'unexpected_representation', 'incomplete_field',
+    'attribution_mismatch', 'time_limit', 'record_limit', 'byte_limit',
+    'append_pending', 'positive_match', 'complete'))
 CRASH_SETUP_STAGES = ('setup_journal', 'setup_log_directory', 'setup_log_file', 'setup_crash_store')
 CRASH_CATEGORIES = frozenset({
     'runtime_limits', 'dumpable_parent', 'dumpable_child', 'crash_signal',
@@ -268,9 +275,11 @@ def validate_report(report):
         require(report['checks_passed'] is False and report['secret_entry_authorized'] is False
                 and report['runtime_crash_suppression_qualified'] is False)
         results = report['results']
-        require(type(results) is dict and set(results) == CRASH_CATEGORIES)
-        require(all(type(value) is str and value in ('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE')
-                    for value in results.values()))
+        require(type(results) is dict and set(results) == CRASH_CATEGORIES | {'journal_stage', 'journal_reason'})
+        require(all(type(value) is str and value in
+                    (JOURNAL_STAGES if key == 'journal_stage' else JOURNAL_REASONS
+                     if key == 'journal_reason' else ('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE'))
+                    for key, value in results.items()))
         expected = 'crash_trial_failed' if 'FAIL' in results.values() else 'coverage_incomplete'
         setup_failures = [name for name in CRASH_SETUP_STAGES if results[name] == 'FAIL']
         require(report['failed_checks'] == (setup_failures or [expected]))

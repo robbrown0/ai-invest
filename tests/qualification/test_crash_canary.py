@@ -269,7 +269,7 @@ class CleanupTests(unittest.TestCase):
 class IntegrationTests(unittest.TestCase):
     def test_harness_pin_and_fixed_result(self):
         self.assertEqual(hashlib.sha256((ROOT / 'scripts/qualification/crash_canary.py').read_bytes()).hexdigest(), W.CRASH_SHA256)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-log-source.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-journal.json')
 
     def test_systemd_warning_removed_reg_sd01(self):
         for diagnostic, crash in ((False, False), (True, False), (True, True)):

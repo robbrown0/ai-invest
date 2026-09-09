@@ -122,7 +122,7 @@ class JournalTests(unittest.TestCase):
     def test_read_failure_not_absence(self):
         reader = Reader([(1500000, entry())])
         reader._get = Mock(side_effect=OSError('UNPUBLISHED_DETAIL'))
-        with self.assertRaises(OSError): self.run_reader(reader)
+        with self.assertRaises(H.JournalIncomplete): self.run_reader(reader)
 
     def test_detected_match_cannot_be_erased_by_later_failure(self):
         reader = Reader([(1500000, entry(MESSAGE=FIXTURE)), (1500001, {})])
@@ -284,7 +284,7 @@ class ObservationTests(unittest.TestCase):
         policy = (ROOT / 'infrastructure/qualification/ai-invest-operator.sudoers').read_text()
         self.assertEqual(policy.count('/usr/local/sbin/ai-invest-operator-preflight'), 2)
         self.assertNotIn('NOPASSWD', policy)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-log-source.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-journal.json')
         self.assertIn('os.O_EXCL', inspect.getsource(W))
 
 
