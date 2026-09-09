@@ -21,15 +21,16 @@ INSTALLED = Path('/usr/local/sbin/ai-invest-operator-preflight')
 LIB = Path('/usr/local/libexec/ai-invest')
 HELPER = LIB / 'operator_preflight.py'
 CRASH_HELPER = LIB / 'crash_canary.py'
-CRASH_SHA256 = 'e7416c4068b753f030d7e0a456e42d8479960872bf3b44226a7d55c9a8fb50e3'
-CRASH_RESULT = Path('/var/tmp/ai-invest-crash-journal.json')
+CRASH_SHA256 = 'd2b3c8a6feb7ef872b6c1fcf44d4ba454fe48cfe35701a069b7847ba8e890595'
+CRASH_RESULT = Path('/var/tmp/ai-invest-crash-boot-time.json')
 JOURNAL_STAGES = frozenset(('not_started', 'initial_change', 'cursor_restore',
     'filters', 'seek', 'iteration', 'timestamp_boot', 'field_read', 'field_shape',
     'attribution', 'final_change', 'budget', 'complete'))
 JOURNAL_REASONS = frozenset(('not_started', 'api_error', 'invalidation',
     'anchor_unavailable', 'unexpected_representation', 'incomplete_field',
     'attribution_mismatch', 'time_limit', 'record_limit', 'byte_limit',
-    'append_pending', 'positive_match', 'complete'))
+    'append_pending', 'positive_match', 'complete', 'record_boot_mismatch',
+    'record_before_window', 'invalid_observation_interval'))
 CRASH_SETUP_STAGES = ('setup_journal', 'setup_log_directory', 'setup_log_file', 'setup_crash_store')
 CRASH_CATEGORIES = frozenset({
     'runtime_limits', 'dumpable_parent', 'dumpable_child', 'crash_signal',

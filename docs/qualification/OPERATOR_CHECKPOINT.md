@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: focused journal observation
+## Current checkpoint: distinct boot/time predicates
+
+Use only the **[guarded boot/time upgrade and one console run](BOOT_TIME_CHECKPOINT.md)** after reading [the protected-host excerpt and native reproduction](BOOT_TIME_QUALIFICATION.md) and [independent review](BOOT_TIME_REVIEW.md). The human's shared attribution_mismatch does not identify which boot/time condition failed. The next run distinguishes all three without weakening checks. Earlier installation blocks below are historical; both flags remain false and Gate 2 NOT PASSED.
+
+## Previous checkpoint: focused journal observation
 
 Use only the **[guarded journal upgrade and one console run](JOURNAL_CHECKPOINT.md)** after reviewing [new human evidence and bounded diagnostics](JOURNAL_QUALIFICATION.md) and [independent review](JOURNAL_REVIEW.md). All setup/local checks and the log/store/window categories passed in the owner's last trial, but the journal cause remains unresolved. The next run reports journal_stage/journal_reason without raw data. No working trust mechanism is redesigned; both flags remain false. All installation sections below are historical.
 

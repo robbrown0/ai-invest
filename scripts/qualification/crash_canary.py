@@ -45,7 +45,8 @@ JOURNAL_STAGES = frozenset(('not_started', 'initial_change', 'cursor_restore',
 JOURNAL_REASONS = frozenset(('not_started', 'api_error', 'invalidation',
     'anchor_unavailable', 'unexpected_representation', 'incomplete_field',
     'attribution_mismatch', 'time_limit', 'record_limit', 'byte_limit',
-    'append_pending', 'positive_match', 'complete'))
+    'append_pending', 'positive_match', 'complete', 'record_boot_mismatch',
+    'record_before_window', 'invalid_observation_interval'))
 # PR_SET_PDEATHSIG, PR_GET_DUMPABLE, PR_SET_DUMPABLE from linux/prctl.h.
 LIBC = ctypes.CDLL(None, use_errno=True)
 LIBC.prctl.restype = ctypes.c_int
@@ -549,6 +550,7 @@ class Observation:
                     reader.add_match(key + '=' + value)
             stage = 'seek'
             lower, upper = int(self.start * 1000000), int(end * 1000000)
+            check(0 <= self.start <= end and lower <= upper, 'invalid_observation_interval')
             reader.seek_monotonic(lower, self.boot)
             size, collector = 0, False
             for _ in range(256):
@@ -563,8 +565,8 @@ class Observation:
                 stamp, boot = timestamp
                 check(type(stamp) is int and type(boot) is bytes and len(boot) == 16,
                       'unexpected_representation')
-                check(boot.hex() == self.boot, 'attribution_mismatch')
-                check(lower <= stamp and lower <= upper, 'attribution_mismatch')
+                check(boot.hex() == self.boot, 'record_boot_mismatch')
+                check(lower <= stamp, 'record_before_window')
                 if stamp > upper:
                     break  # Still process invalidation before any absence PASS.
                 entry = {}

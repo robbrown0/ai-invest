@@ -59,6 +59,29 @@ def main():
         ROOT / 'scripts/qualification/crash_canary.py')
     harness = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(harness)
+    def write_file(path, rows, file_number=0):
+        cache, journal = lib.mmap_cache_new(), pointer()
+        assert cache
+        try:
+            assert lib.journal_file_open(-1, os.fsencode(path),
+                os.O_RDWR | os.O_CREAT | os.O_EXCL, 0, 0o600, 0,
+                None, cache, None, C.byref(journal)) >= 0
+            for index, (usec, header_boot, fields, message) in enumerate(rows):
+                records = [b'MESSAGE=' + message]
+                records += [(key + '=' + value).encode() for key, value in fields]
+                buffers = [C.create_string_buffer(value) for value in records]
+                vectors = (IOVec * len(buffers))(*[IOVec(C.cast(buf, pointer), len(value))
+                    for buf, value in zip(buffers, records)])
+                stamp = Timestamp(1700000000000000 + file_number * 100 + index, usec)
+                boot = Identifier()
+                boot.bytes[:] = header_boot
+                assert lib.journal_file_append_entry(journal, C.byref(stamp), C.byref(boot),
+                    vectors, len(vectors), None, None, None, None) >= 0
+        finally:
+            if journal:
+                lib.journal_file_close(journal)
+            lib.mmap_cache_unref(cache)
+
     results = {}
     selectors = harness.journal_groups(BOOT.hex(), os.getpid(), 123)
     cases = [('empty', [('_PID', '999')], b'negative', False),
@@ -71,27 +94,7 @@ def main():
     for name, fields, message, positive in cases:
         with tempfile.TemporaryDirectory(prefix='ai-invest-native-journal-') as directory:
             path = str(Path(directory) / 'fixture.journal')
-            cache, journal = lib.mmap_cache_new(), pointer()
-            assert cache
-            try:
-                assert lib.journal_file_open(-1, os.fsencode(path),
-                    os.O_RDWR | os.O_CREAT | os.O_EXCL, 0, 0o600, 0,
-                    None, cache, None, C.byref(journal)) >= 0
-                records = [b'_BOOT_ID=' + BOOT.hex().encode(),
-                           b'MESSAGE=' + message]
-                records += [(key + '=' + value).encode() for key, value in fields]
-                buffers = [C.create_string_buffer(value) for value in records]
-                vectors = (IOVec * len(buffers))(*[IOVec(C.cast(buf, pointer), len(value))
-                    for buf, value in zip(buffers, records)])
-                stamp = Timestamp(1700000000000000, 1500000)
-                boot = Identifier()
-                boot.bytes[:] = BOOT
-                assert lib.journal_file_append_entry(journal, C.byref(stamp), C.byref(boot),
-                    vectors, len(vectors), None, None, None, None) >= 0
-            finally:
-                if journal:
-                    lib.journal_file_close(journal)
-                lib.mmap_cache_unref(cache)
+            write_file(path, [(1500000, BOOT, [('_BOOT_ID', BOOT.hex()), *fields], message)])
             with _reader._Reader(flags=0, files=[path]) as reader:
                 assert reader.fileno() >= 0
                 reader.data_threshold = harness.MAX_FIELD
@@ -126,7 +129,88 @@ def main():
                     assert answer[0] == ('FAIL' if positive else 'PASS')
                     assert answer[1] == (positive or name == 'clause_2')
                 results[name] = 'PASS'
-    return {'status': 'PASS', 'cases': results}
+    # Same restored-cursor/full-DNF/seek/next production path, realistic history.
+    scope = ('_SYSTEMD_UNIT', 'ai-invest-operator-preflight.scope')
+    other_boot = bytes.fromhex('b' * 32)
+    def row(usec, selector=scope, message=b'negative', boot=BOOT, field_boot=None):
+        return (usec, boot, [('_BOOT_ID', (field_boot or boot).hex()), selector], message)
+    boundary_cases = [
+        ('pre_only', [[row(999999)]], 1.0, 2.0),
+        ('pre_then_scope_positive', [[row(999999), row(1500000, message=FIXTURE)]], 1.0, 2.0),
+        ('old_scope_new_child', [[row(999999), row(1500000, ('_PID', '123'), FIXTURE)]], 1.0, 2.0),
+        ('lower_positive', [[row(1000000, message=FIXTURE)]], 1.0, 2.0),
+        ('upper_positive', [[row(2000000, message=FIXTURE)]], 1.0, 2.0),
+        ('outside_lower_positive', [[row(999999, message=FIXTURE)]], 1.0, 2.0),
+        ('outside_upper_positive', [[row(2000001, message=FIXTURE)]], 1.0, 2.0),
+        ('earlier_runs', [[row(100), row(500000), row(999999), row(1500000)]], 1.0, 2.0),
+        ('overlapping_boots', [[row(1500000, boot=other_boot), row(999999), row(1500000, message=FIXTURE)]], 1.0, 2.0),
+        ('boot_header_field_disagreement', [[row(1500000, boot=other_boot, field_boot=BOOT),
+             row(2000001, ('_PID', '999'))]], 1.0, 2.0),
+        ('multiple_files', [[row(999999)], [row(1500000, ('COREDUMP_PID', '123'), FIXTURE)]], 1.0, 2.0),
+        ('multiple_files_pre_only', [[row(500000)], [row(999999)]], 1.0, 2.0),
+        ('multiple_files_boots', [[row(1500000, boot=other_boot)],
+             [row(1500000, message=FIXTURE)]], 1.0, 2.0),
+        ('fractional_lower', [[row(123456123456, message=FIXTURE)]], 123456.1234567, 123457.0),
+        ('fractional_upper', [[row(123457123456, message=FIXTURE)]], 123456.0, 123457.1234567),
+        ('reversed_interval', [[row(1500000)]], 2.0, 1.0),
+        ('submicrosecond_reversal', [[row(1500000)]], 1.0000009, 1.0000001),
+    ]
+    boundary_cases += [('history_clause_' + str(i),
+        [[row(999999), row(1500000, group[1], FIXTURE)]], 1.0, 2.0)
+        for i, group in enumerate(selectors)]
+    boundary_results = {}
+    for name, files, start, end in boundary_cases:
+        with tempfile.TemporaryDirectory(prefix='ai-invest-native-boundary-') as directory:
+            paths = []
+            for index, rows in enumerate(files):
+                path = str(Path(directory) / ('fixture-' + str(index) + '.journal'))
+                write_file(path, rows, index)
+                paths.append(path)
+            class ObservedReader(_reader._Reader):
+                payload_reads = 0
+                def _get(self, key):
+                    stamp, boot = self._get_monotonic()
+                    assert boot == BOOT and int(start * 1000000) <= stamp <= int(end * 1000000)
+                    self.payload_reads += 1
+                    return super()._get(key)
+            with ObservedReader(flags=0, files=paths) as reader:
+                assert reader.fileno() >= 0
+                reader.data_threshold = harness.MAX_FIELD
+                reader.seek_tail()
+                assert reader._previous()
+                obj = harness.Observation.__new__(harness.Observation)
+                obj.reader, obj.boot, obj.anchor = reader, BOOT.hex(), reader._get_cursor()
+                obj.start = start
+                try:
+                    answer = obj.journal(123, FIXTURE, end)
+                except harness.JournalIncomplete:
+                    answer = ('NOT_TESTED', True)
+                # Expected incomplete cases are successful regression assertions,
+                # NOT successful journal observations or absence claims.
+                incomplete = {
+                    'pre_only': 'record_before_window',
+                    'outside_lower_positive': 'record_before_window',
+                    'multiple_files': 'record_before_window',
+                    'multiple_files_pre_only': 'record_before_window',
+                    'boot_header_field_disagreement': 'record_boot_mismatch',
+                    'reversed_interval': 'invalid_observation_interval',
+                    'submicrosecond_reversal': 'invalid_observation_interval',
+                }
+                if name in incomplete:
+                    assert answer[0] == 'NOT_TESTED'
+                    assert obj.journal_diagnostic['journal_reason'] == incomplete[name]
+                    assert reader.payload_reads == 0
+                elif name in ('earlier_runs', 'outside_upper_positive'):
+                    assert answer[0] == 'PASS'
+                    assert obj.journal_diagnostic['journal_reason'] == 'complete'
+                    if name == 'outside_upper_positive':
+                        assert reader.payload_reads == 0
+                else:
+                    assert answer[0] == 'FAIL'
+                    assert obj.journal_diagnostic['journal_reason'] == 'positive_match'
+                    assert reader.payload_reads > 0
+                boundary_results[name] = 'PASS'
+    return {'status': 'PASS', 'cases': results, 'boundaries': boundary_results}
 
 
 if __name__ == '__main__':

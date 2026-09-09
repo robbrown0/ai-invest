@@ -284,7 +284,7 @@ class ObservationTests(unittest.TestCase):
         policy = (ROOT / 'infrastructure/qualification/ai-invest-operator.sudoers').read_text()
         self.assertEqual(policy.count('/usr/local/sbin/ai-invest-operator-preflight'), 2)
         self.assertNotIn('NOPASSWD', policy)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-journal.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-boot-time.json')
         self.assertIn('os.O_EXCL', inspect.getsource(W))
 
 
