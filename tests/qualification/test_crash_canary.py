@@ -36,6 +36,9 @@ class CrashTests(unittest.TestCase):
             stack.enter_context(patch.object(H, 'runtime_limits', side_effect=lambda *args: events.append('limits') or Path('/synthetic')))
             rng = stack.enter_context(patch.object(H.os, 'getrandom', side_effect=lambda size: events.append('generate') or sentinel))
             stack.enter_context(patch.object(H, 'bounded_read', return_value=read_value))
+            observer = stack.enter_context(patch.object(H, 'Observation'))
+            observer.return_value.finish.return_value = {}
+            stack.enter_context(patch.object(H, 'wait_exit'))
             stack.enter_context(patch.object(H.os, 'fork', return_value=fork_result))
             stack.enter_context(patch.object(H.os, 'close', side_effect=lambda fd: events.append('close')))
             stack.enter_context(patch.object(H.os, 'kill', side_effect=lambda *args: events.append('signal')))
@@ -61,16 +64,17 @@ class CrashTests(unittest.TestCase):
     def test_local_success_is_not_complete_qualification(self):
         result, events, count = self.simulated_trial()
         self.assertEqual(count, 1)
-        self.assertEqual(events[:4], ['protect', 'detach', 'limits', 'generate'])
+        self.assertEqual(events[:5], ['protect', 'detach', 'limits', 'limits', 'generate'])
         for key in ('dumpable_parent', 'dumpable_child', 'crash_signal', 'kernel_core_flag',
                     'own_argv', 'own_environment', 'stdio_detached', 'child_reaped', 'cleanup'):
             self.assertEqual(result['results'][key], 'PASS')
         self.assertFalse(result['checks_passed'])
         self.assertEqual(result['failed_checks'], ['coverage_incomplete'])
-        for key in ('collector_retention', 'journal', 'sudo_logs', 'shell_history',
-                    'temporary_files', 'swap_bytes', 'git_worktree', 'git_index',
-                    'git_history', 'ci_artifacts', 'human_input_path'):
+        for key in ('collector_retention', 'journal', 'swap_bytes', 'human_input_path'):
             self.assertEqual(result['results'][key], 'NOT_TESTED')
+        for key in ('sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
+                    'git_worktree', 'git_index', 'git_history', 'ci_artifacts'):
+            self.assertEqual(result['results'][key], 'NOT_APPLICABLE')
         self.assertFalse(result['secret_entry_authorized'])
         self.assertFalse(result['runtime_crash_suppression_qualified'])
 
@@ -260,7 +264,7 @@ class CleanupTests(unittest.TestCase):
 class IntegrationTests(unittest.TestCase):
     def test_harness_pin_and_fixed_result(self):
         self.assertEqual(hashlib.sha256((ROOT / 'scripts/qualification/crash_canary.py').read_bytes()).hexdigest(), W.CRASH_SHA256)
-        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-qualification.json')
+        self.assertEqual(str(W.CRASH_RESULT), '/var/tmp/ai-invest-crash-observation.json')
 
     def test_systemd_warning_removed_reg_sd01(self):
         for diagnostic, crash in ((False, False), (True, False), (True, True)):
@@ -342,12 +346,15 @@ fake_unlink() { harness=0; printf "harness-removed\n"; }
         self.assertIn('recovery requires human review', result.stderr)
         self.assertNotIn('harness-removed', result.stdout)
 
-    def test_current_digests_in_human_checkpoint(self):
+    def test_historical_digests_in_human_checkpoint(self):
         text = (ROOT / 'docs/qualification/CRASH_CHECKPOINT.md').read_text()
         for file in ('scripts/qualification/run_operator_preflight.py',
                      'scripts/qualification/crash_canary.py',
                      'infrastructure/qualification/ai-invest-operator.sudoers'):
-            self.assertIn(hashlib.sha256((ROOT / file).read_bytes()).hexdigest(), text)
+            original = subprocess.run(['/usr/bin/git', 'show',
+                '5975603575b6761fb44932b84dc1519676639584:' + file],
+                cwd=ROOT, capture_output=True, check=True, timeout=10).stdout
+            self.assertIn(hashlib.sha256(original).hexdigest(), text)
         self.assertLess(self.transaction().index('crash-policy.previous'),
                         self.transaction().index('crash-wrapper.previous'))
 

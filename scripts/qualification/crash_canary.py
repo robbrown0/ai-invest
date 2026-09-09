@@ -9,6 +9,7 @@ import faulthandler
 import json
 import os
 from pathlib import Path
+import re
 import resource
 import select
 import signal
@@ -16,14 +17,21 @@ import stat
 import time
 
 MAX_RESULT = 4096
-DEADLINE = 20
+DEADLINE = 35
+OBSERVATION_SECONDS = 10
+MAX_OBSERVATION = 1024 * 1024
+MAX_FIELD = 65536
+JOURNAL_FIELDS = ('_BOOT_ID', '_PID', 'COREDUMP_PID', 'OBJECT_PID',
+    '_SYSTEMD_UNIT', 'OBJECT_SYSTEMD_UNIT', 'UNIT', 'MESSAGE', 'COREDUMP',
+    'COREDUMP_FILENAME', 'COREDUMP_CMDLINE', 'COREDUMP_ENVIRON',
+    'COREDUMP_PROC_STATUS', 'COREDUMP_PROC_MAPS', 'COREDUMP_PROC_LIMITS', '_CMDLINE')
 CATEGORIES = (
     'runtime_limits', 'dumpable_parent', 'dumpable_child', 'crash_signal',
     'kernel_core_flag', 'own_argv', 'own_environment', 'stdio_detached',
     'child_reaped', 'cleanup', 'bounded_result', 'collector_retention', 'journal',
     'sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
     'swap_bytes', 'git_worktree', 'git_index', 'git_history', 'ci_artifacts',
-    'human_input_path',
+    'human_input_path', 'observation_window', 'apport_log', 'crash_store',
 )
 STATES = frozenset(('PASS', 'FAIL', 'NOT_TESTED', 'NOT_APPLICABLE'))
 # PR_SET_PDEATHSIG, PR_GET_DUMPABLE, PR_SET_DUMPABLE from linux/prctl.h.
@@ -152,6 +160,241 @@ def wait_child(pid, deadline):
     raise Refused()
 
 
+def wait_exit(pid, deadline):
+    # Keep the zombie/PID identity through observation, then reap normally.
+    while time.monotonic() < deadline:
+        result = os.waitid(os.P_PID, pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        if result is not None:
+            require(result.si_pid == pid)
+            return
+        time.sleep(0.02)
+    raise Refused()
+
+
+def root_path(path, directory=False, sticky=False):
+    target = Path(path)
+    require(target.resolve(strict=True) == target)
+    for item in (target, *target.parents):
+        info = item.lstat()
+        require(info.st_uid == 0 and (not info.st_mode & 0o022 or
+                item == target == Path('/var/crash') and sticky
+                and bool(info.st_mode & stat.S_ISVTX)))
+    info = target.lstat()
+    require(stat.S_ISDIR(info.st_mode) if directory else
+            stat.S_ISREG(info.st_mode) and info.st_nlink == 1)
+    return info
+
+
+def fingerprint(info):
+    # Reading may update atime; mutation checks use identity/size/mtime/ctime.
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def journal_groups(boot, parent, child):
+    scope = 'ai-invest-operator-preflight.scope'
+    return [(('_BOOT_ID', boot), (key, value)) for key, value in (
+        ('_PID', str(parent)), ('_PID', str(child)), ('COREDUMP_PID', str(child)),
+        ('OBJECT_PID', str(child)), ('_SYSTEMD_UNIT', scope),
+        ('OBJECT_SYSTEMD_UNIT', scope), ('UNIT', scope))]
+
+
+def journal_entry(entry, groups, canary):
+    require(type(entry) is dict and 0 < len(entry) <= 256)
+    require(all(type(key) is str and type(value) is bytes
+                and len(key.encode('ascii')) + 1 + len(value) < MAX_FIELD
+                for key, value in entry.items()))
+    require(sum(len(value) for value in entry.values()) <= MAX_OBSERVATION)
+    require(any(all(entry.get(key) == value.encode('ascii') for key, value in group)
+                for group in groups))
+    leaked = any(contains(canary, value) for value in entry.values())
+    collector = any(key in entry for key in ('COREDUMP_PID', 'COREDUMP', 'COREDUMP_FILENAME'))
+    return leaked, collector
+
+
+def apport_records(data, child, canary):
+    # Only new interval bytes. Parse attribution before examining payloads.
+    require(len(data) <= MAX_OBSERVATION)
+    rows, valid = [], not data or data.endswith(b'\n')
+    # A trailing partial record makes coverage incomplete but cannot erase a
+    # positive match in an earlier complete attributable record.
+    for line in data.split(b'\n')[:-1]:
+        match = re.fullmatch(rb'(?:ERROR|WARNING|INFO|DEBUG|CRITICAL): apport \(pid ([0-9]{1,10})\) [^\r\n]{1,80}?: (.*)', line)
+        if match is None:
+            valid = False
+        else:
+            rows.append(match.groups())
+    markers = (b'host pid ' + str(child).encode() + b' crashed in a separate mount namespace, ignoring',
+               b'called for global pid ' + str(child).encode() + b', signal ')
+    # Do not attribute other lines by collector PID: that PID is not pinned.
+    targeted = [message for _, message in rows if any(message.startswith(marker) for marker in markers)]
+    leaked = any(contains(canary, message) for message in targeted)
+    return leaked, valid and not rows  # Any collector activity stays incomplete.
+
+
+class Observation:
+    """Fixed read-only sinks inside the protected worker; no external canary receiver."""
+    def __init__(self):
+        self.reader = None
+        self.log_fd = self.watch_fd = None
+        self.ready = False
+        try:
+            # Import installed standard binding BEFORE random material exists.
+            from systemd import _reader
+            self.boot = bounded_read('/proc/sys/kernel/random/boot_id', 64).strip().decode('ascii').replace('-', '')
+            require(re.fullmatch('[0-9a-f]{32}', self.boot) is not None)
+            self.reader = _reader._Reader(flags=_reader.LOCAL_ONLY | _reader.SYSTEM)
+            # v255 process() alone does not establish journal change watches.
+            require(self.reader.fileno() >= 0)
+            self.reader.data_threshold = MAX_FIELD
+            self.reader.seek_tail()
+            require(self.reader._previous())
+            _, boot = self.reader._get_monotonic()
+            require(boot.hex() == self.boot)
+            self.anchor = self.reader._get_cursor()  # No historical entry body.
+            root_path('/var/log', directory=True)
+            self.log_path = Path('/var/log/apport.log')
+            if self.log_path.exists():
+                info = root_path(self.log_path)
+                self.log_fd = os.open(self.log_path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+                require(fingerprint(os.fstat(self.log_fd)) == fingerprint(info))
+                self.log_info = info
+            else:
+                require(not self.log_path.is_symlink())
+                self.log_info = None
+            self.watch_fd = LIBC.inotify_init1(os.O_CLOEXEC | os.O_NONBLOCK)
+            require(self.watch_fd >= 0)
+            self.stores = []
+            for path in ('/var/crash', '/var/lib/systemd/coredump'):
+                target = Path(path)
+                if not target.exists():
+                    require(not target.is_symlink())
+                    target = target.parent
+                info = root_path(target, directory=True, sticky=target == Path('/var/crash'))
+                # modify/attrib/close-write/moves/create/delete/self; any event
+                # including queue overflow means incomplete. No report contents.
+                require(LIBC.inotify_add_watch(self.watch_fd, os.fsencode(target), 0xFCE) >= 0)
+                self.stores.append((target, info.st_dev, info.st_ino))
+            self.start, self.wall = time.monotonic(), time.time()
+            self.ready = True
+        except BaseException:
+            self.close()
+
+    def close(self):
+        if self.reader is not None:
+            self.reader.close()
+            self.reader = None
+        for name in ('log_fd', 'watch_fd'):
+            fd = getattr(self, name)
+            if fd is not None and fd >= 0:
+                os.close(fd)
+            setattr(self, name, None)
+
+    def journal(self, child, canary, end):
+        reader = self.reader
+        require(reader.process() != 2)  # SD_JOURNAL_INVALIDATE
+        reader.seek_cursor(self.anchor)
+        require(reader._next() and reader.test_cursor(self.anchor))
+        groups = journal_groups(self.boot, os.getpid(), child)
+        for index, group in enumerate(groups):
+            if index:
+                reader.add_disjunction()
+            for key, value in group:
+                reader.add_match(key + '=' + value)
+        reader.seek_monotonic(int(self.start * 1000000), self.boot)
+        size = 0
+        leaked = collector = False
+        deadline = time.monotonic() + 2
+        for _ in range(256):
+            require(time.monotonic() < deadline)
+            if not reader._next():
+                require(reader.process() != 2)
+                return ('FAIL' if leaked else 'PASS'), collector
+            stamp, boot = reader._get_monotonic()
+            require(boot.hex() == self.boot and stamp >= int(self.start * 1000000))
+            if stamp > int(end * 1000000):
+                return ('FAIL' if leaked else 'PASS'), collector
+            entry = {}
+            # v235 _get_all can suppress enumeration errors. Fixed individual
+            # reads expose errors; KeyError alone denotes an absent field.
+            for key in JOURNAL_FIELDS:
+                try:
+                    entry[key] = reader._get(key)
+                except KeyError:
+                    continue
+                if contains(canary, entry[key]):
+                    return 'FAIL', True
+            hit, active = journal_entry(entry, groups, canary)
+            if hit:
+                return 'FAIL', True  # A later bad record cannot erase detection.
+            leaked, collector = leaked or hit, collector or active
+            size += sum(len(value) for value in entry.values())
+            require(size <= MAX_OBSERVATION)
+        raise Refused()
+
+    def apport(self, child, canary):
+        if self.log_info is None:
+            # A new file is an invocation indicator, not a reviewed baseline.
+            require(not self.log_path.exists() and not self.log_path.is_symlink())
+            return 'PASS', False
+        now = root_path(self.log_path)
+        old = self.log_info
+        require((now.st_dev, now.st_ino) == (old.st_dev, old.st_ino))
+        require(fingerprint(os.fstat(self.log_fd)) == fingerprint(now) and now.st_size >= old.st_size)
+        if fingerprint(now) == fingerprint(old):
+            return 'PASS', False
+        require(now.st_size > old.st_size and now.st_size - old.st_size <= MAX_OBSERVATION)
+        data = os.pread(self.log_fd, now.st_size - old.st_size, old.st_size)
+        require(len(data) == now.st_size - old.st_size)
+        leaked, complete = apport_records(data, child, canary)
+        if leaked:
+            return 'FAIL', True
+        require(fingerprint(os.fstat(self.log_fd)) == fingerprint(now))
+        return ('FAIL' if leaked else 'PASS' if complete else 'NOT_TESTED'), True
+
+    def store_events(self):
+        for target, device, inode in self.stores:
+            info = root_path(target, directory=True, sticky=target == Path('/var/crash'))
+            require((info.st_dev, info.st_ino) == (device, inode))
+        try:
+            events = os.read(self.watch_fd, 65536)
+        except BlockingIOError:
+            return 'PASS'
+        require(events)
+        return 'NOT_TESTED'
+
+    def finish(self, child, canary):
+        values = dict.fromkeys(('observation_window', 'journal', 'apport_log',
+                                'crash_store', 'collector_retention'), 'NOT_TESTED')
+        if not self.ready:
+            return values
+        until = time.monotonic() + OBSERVATION_SECONDS
+        while time.monotonic() < until:
+            time.sleep(min(0.05, max(0, until - time.monotonic())))
+        end = time.monotonic()
+        require(end - until < 2 and abs((time.time() - self.wall) - (end - self.start)) < 0.25)
+        values['observation_window'] = 'PASS'
+        collector = changed = True
+        try:
+            values['journal'], collector = self.journal(child, canary, end)
+        except BaseException:
+            pass
+        try:
+            values['apport_log'], changed = self.apport(child, canary)
+        except BaseException:
+            pass
+        try:
+            values['crash_store'] = self.store_events()
+        except BaseException:
+            pass
+        if 'FAIL' in values.values():
+            values['collector_retention'] = 'FAIL'
+        elif not collector and not changed and all(values[key] == 'PASS' for key in
+                                                  ('journal', 'apport_log', 'crash_store')):
+            # Finite reviewed window/sinks, NOT universal non-retention.
+            values['collector_retention'] = 'PASS'
+        return values
+
+
 def reap_owned(pid, pidfd):
     """Bounded cleanup through a pinned process identity, never a recycled PID."""
     if pid is None:
@@ -186,12 +429,14 @@ def encode_result(values, canary):
 
 def trial(output_fd, supervisor_pid):
     values = {}
-    child = child_fd = canary = None
+    child = child_fd = canary = observation = None
     try:
         protect(supervisor_pid)
         detach(output_fd)
         group = runtime_limits()
         values.update(runtime_limits='PASS', dumpable_parent='PASS', stdio_detached='PASS')
+        observation = Observation()
+        runtime_limits(group)  # Library loading cannot silently add workers.
         # Generation is AFTER protections, inside the worker, never in wrapper/model.
         canary = os.getrandom(32)
         require(len(canary) == 32)
@@ -204,6 +449,10 @@ def trial(output_fd, supervisor_pid):
             try:
                 protect(parent)
                 os.close(output_fd)
+                # Do not use the parent's process-origin-bound journal object.
+                # Raw close leaves its parent's watches intact; no child exec or
+                # Python destructor runs on SIGABRT / the os._exit fallback.
+                detach(-1)
                 runtime_limits(group)
                 require(len(canary) == 32 and prctl(3) == 0)
                 signal.signal(signal.SIGABRT, signal.SIG_DFL)
@@ -213,6 +462,8 @@ def trial(output_fd, supervisor_pid):
                 pass  # Never format an exception or write child memory to any FD.
             os._exit(71)
         child_fd = os.pidfd_open(child, 0)
+        wait_exit(child, time.monotonic() + 5)
+        values.update(observation.finish(child, canary))
         status = wait_child(child, time.monotonic() + 5)
         child = None
         values['child_reaped'] = 'PASS'
@@ -224,10 +475,20 @@ def trial(output_fd, supervisor_pid):
         runtime_limits(group)
         require(prctl(3) == 0 and not faulthandler.is_enabled())
         values['runtime_limits'] = 'PASS'
+        if 'FAIL' not in values.values():
+            # Reviewed data-flow exclusions, not searches of uninvolved systems.
+            for key in ('sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
+                        'git_worktree', 'git_index', 'git_history', 'ci_artifacts'):
+                values[key] = 'NOT_APPLICABLE'
     except BaseException:
         values['runtime_limits'] = 'FAIL'
     finally:
         values['cleanup'] = 'PASS' if reap_owned(child, child_fd) else 'FAIL'
+        if observation is not None:
+            try:
+                observation.close()
+            except BaseException:
+                values['cleanup'] = 'FAIL'
     try:
         values['bounded_result'] = 'PASS'
         candidate = encode_result(values, canary)

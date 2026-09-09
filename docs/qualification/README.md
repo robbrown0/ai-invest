@@ -2,6 +2,8 @@
 
 ## Current checkpoint after subsequent owner approval
 
+Latest evidence: the owner ran one crash trial from **5975603575b6761fb44932b84dc1519676639584**. All 11 implemented local checks passed; zero failed; collector/leakage/input coverage remained incomplete. [Exact preserved result and finite coverage matrix](OBSERVATION_QUALIFICATION.md) distinguish this from complete assurance. The next [single guarded observation checkpoint](OBSERVATION_CHECKPOINT.md) is prepared, not run; [independent review](OBSERVATION_REVIEW.md) applies only to that non-secret scope. Both flags remain false. Gate 2 NOT PASSED. The earlier checkpoints below, including their then-unrun wording, are historical.
+
 Latest human evidence: the reviewed PATH-corrected physical-console diagnostic passed all its implemented metadata/control predicates, with both authorization flags false. [Exact result and limits](CRASH_QUALIFICATION.md) distinguish this success from unqualified actual crash/collector, leakage and future service protection. The next [human-only bounded crash trial](CRASH_CHECKPOINT.md) remains unrun; Gate 2 NOT PASSED. All paragraphs below are earlier checkpoints, preserved as history.
 
 The latest human-installed physical-console run passed the earlier TTY boundary and stopped at `operator_environment`. The **[bounded environment refinement](ENVIRONMENT_DIAGNOSTICS.md)** adds fixed subpredicate diagnostics without changing acceptance. The actual failed subpredicate remains unknown pending the next human-only upgrade/run. Prior statements below describe their historical checkpoints. No runtime swap/crash/secret-entry authorization follows from this progress.

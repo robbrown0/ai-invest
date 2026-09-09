@@ -21,15 +21,15 @@ INSTALLED = Path('/usr/local/sbin/ai-invest-operator-preflight')
 LIB = Path('/usr/local/libexec/ai-invest')
 HELPER = LIB / 'operator_preflight.py'
 CRASH_HELPER = LIB / 'crash_canary.py'
-CRASH_SHA256 = '781084d0a524347e81e5f241cbf349e3404c931cba5082ee27f48a02b2475415'
-CRASH_RESULT = Path('/var/tmp/ai-invest-crash-qualification.json')
+CRASH_SHA256 = '68fc9bcea6fecb98a2436992f3cc13c4a4b582a39ac867d025b5bc0fc3f66927'
+CRASH_RESULT = Path('/var/tmp/ai-invest-crash-observation.json')
 CRASH_CATEGORIES = frozenset({
     'runtime_limits', 'dumpable_parent', 'dumpable_child', 'crash_signal',
     'kernel_core_flag', 'own_argv', 'own_environment', 'stdio_detached',
     'child_reaped', 'cleanup', 'bounded_result', 'collector_retention', 'journal',
     'sudo_logs', 'shell_history', 'application_logs', 'temporary_files',
     'swap_bytes', 'git_worktree', 'git_index', 'git_history', 'ci_artifacts',
-    'human_input_path',
+    'human_input_path', 'observation_window', 'apport_log', 'crash_store',
 })
 HOST_ID = LIB / 'host-id'
 ORDINARY_RESULT = Path('/var/tmp/ai-invest-operator-preflight.json')

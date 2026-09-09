@@ -1,5 +1,7 @@
 # Human Checkpoint — Bounded Synthetic Crash Trial
 
+**Historical checkpoint, now executed once by the human:** Source 5975603575b6761fb44932b84dc1519676639584 produced 11 local PASS and zero FAIL, with incomplete coverage. [Exact evidence](OBSERVATION_QUALIFICATION.md). Preserve this original block and result; do not reinstall it for the next run. Use the [current observation checkpoint](OBSERVATION_CHECKPOINT.md) instead. The prepared/unrun wording below describes its original handoff.
+
 **Status:** Prepared, not installed/run by agents. Gate 2 NOT PASSED. No secret input authorized.
 
 Read [scope, evidence and limitations](CRASH_QUALIFICATION.md) and [independent review](CRASH_REVIEW.md) first. This is an interim kernel/crash trial, NOT a complete collector/leakage qualification. Even a locally successful trial returns overall checks_passed=false / coverage_incomplete. Do not treat that as authorization to bootstrap.
@@ -196,4 +198,3 @@ This removes only the known project policy exception, restoring normal sudo PTY 
 ## Stop boundary
 
 No LUKS/OpenBao initialization, real encryption/recovery material, broker connection or production service is permitted. Do not prepare or execute secret bootstrap on the strength of this partial result. Review attributable collector/log observation and human input-path gaps separately. PR #14 remains DRAFT and unmerged.
-

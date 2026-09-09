@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: metadata PASS; bounded crash trial pending
+## Current checkpoint: one narrow crash trial passed; observation pending
+
+The owner reports 11 implemented local PASS checks and no FAIL at commit **5975603575b6761fb44932b84dc1519676639584**. See [the unchanged result, precise meanings and coverage matrix](OBSERVATION_QUALIFICATION.md). Use only the new **[guarded observation upgrade and console checkpoint](OBSERVATION_CHECKPOINT.md)** for the next run. It preserves the original result and still expects overall coverage_incomplete. Secret-entry and runtime-crash-qualification flags remain false. All sections below preserve earlier checkpoints; do not reuse their installation blocks.
+
+## Previous checkpoint: metadata PASS; bounded crash trial pending
 
 The human's latest reviewed PATH-snapshot diagnostic returned checks_passed=true with no failures and both authorization flags false. See [exact runtime-qualified predicates and limits](CRASH_QUALIFICATION.md). Next is the **[guarded synthetic crash checkpoint](CRASH_CHECKPOINT.md)**, not secret bootstrap. That interim trial cannot claim complete collector/leakage qualification. Gate 2 remains NOT PASSED. Earlier [PATH correction](PATH_INDEPENDENCE.md), [environment refinement](ENVIRONMENT_DIAGNOSTICS.md) and all blocks below remain historical evidence, not current installation instructions.
 

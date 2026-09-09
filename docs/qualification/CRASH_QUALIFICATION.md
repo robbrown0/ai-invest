@@ -1,5 +1,7 @@
 # Protected Metadata PASS and Bounded Crash Trial
 
+**Subsequent evidence:** One human crash trial from 5975603575b6761fb44932b84dc1519676639584 returned 11 local PASS, zero FAIL and coverage_incomplete. [Exact preserved result and current coverage plan](OBSERVATION_QUALIFICATION.md). The original plan/status below records what was known before that trial; it is not erased or retrospectively upgraded. The next human procedure is [the observation checkpoint](OBSERVATION_CHECKPOINT.md).
+
 **Status:** Human metadata runtime PASS on the reviewed PATH snapshot; crash/leakage runtime NOT RUN. Gate 2 NOT PASSED.
 **Scope:** Synthetic qualification only. Both authorization flags remain false.
 

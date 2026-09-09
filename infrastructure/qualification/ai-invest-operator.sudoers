@@ -1,7 +1,7 @@
 # QUALIFICATION ONLY. Human installation required; never a portable app policy.
 # Two exact test commands only. No secret input or bootstrap capability exists.
 # Installed sudo/visudo 1.9.15p5, grammar 50. Re-review after policy/source updates.
-Cmnd_Alias AI_INVEST_DIAGNOSTIC = sha256:c95e4d462070e6577ceeba77051be504e67fe5d3f4cb62dc9125654e1b03e461 /usr/local/sbin/ai-invest-operator-preflight --diagnostic, sha256:c95e4d462070e6577ceeba77051be504e67fe5d3f4cb62dc9125654e1b03e461 /usr/local/sbin/ai-invest-operator-preflight --crash-test
+Cmnd_Alias AI_INVEST_DIAGNOSTIC = sha256:f339e600891fcb864d50014e684c7f63d90d7dcba04612ef20336ad10644eecd /usr/local/sbin/ai-invest-operator-preflight --diagnostic, sha256:f339e600891fcb864d50014e684c7f63d90d7dcba04612ef20336ad10644eecd /usr/local/sbin/ai-invest-operator-preflight --crash-test
 Defaults!AI_INVEST_DIAGNOSTIC !use_pty,authenticate,timestamp_timeout=0,!exempt_group
 Defaults!AI_INVEST_DIAGNOSTIC env_reset,!env_keep,!env_check,!setenv,always_set_home,set_logname,secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
 Defaults!AI_INVEST_DIAGNOSTIC closefrom=3,!closefrom_override,umask=0077,fdexec=never
