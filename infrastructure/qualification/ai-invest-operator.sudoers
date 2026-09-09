@@ -1,0 +1,12 @@
+# QUALIFICATION ONLY. Human installation required; never a portable app policy.
+# Exact diagnostic command only. No secret input or bootstrap capability exists.
+# Installed sudo/visudo 1.9.15p5, grammar 50. Re-review after policy/source updates.
+Cmnd_Alias AI_INVEST_DIAGNOSTIC = sha256:a72e866e3c7a84d24ef7c2fbfd21f535c9c03e1eface455daa46204a1f4500d8 /usr/local/sbin/ai-invest-operator-preflight --diagnostic
+Defaults!AI_INVEST_DIAGNOSTIC !use_pty,authenticate,timestamp_timeout=0,!exempt_group
+Defaults!AI_INVEST_DIAGNOSTIC env_reset,!env_keep,!env_check,!setenv,always_set_home,set_logname,secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults!AI_INVEST_DIAGNOSTIC closefrom=3,!closefrom_override,umask=0077,fdexec=never
+Defaults!AI_INVEST_DIAGNOSTIC !log_input,!log_output,!log_stdin,!log_stdout,!log_stderr,!log_ttyin,!log_ttyout
+# Defaults above are command-scoped, not user-scoped. Wrapper also checks UID.
+# No wildcard arguments; no no-argument, internal --scoped, shell or runner grant.
+# Existing administrator authority is neither expanded to ALL nor revoked here.
+#1000 ALL=(root:root) PASSWD: NOSETENV: AI_INVEST_DIAGNOSTIC

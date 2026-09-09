@@ -7,6 +7,7 @@ import hmac
 import io
 import json
 import os
+import pwd
 from pathlib import Path
 import re
 import resource
@@ -27,6 +28,11 @@ HELPER_BASELINE_COMMIT = 'ff75739e4bd420cd17104e34e1eb2b1cdcd54e22'
 HELPER_BASELINE_SHA256 = 'a2914d3063c70f44f4c47d4a337a0dcd546cedc0618c1e61f424daeb3328c6bd'
 HELPER_SHA256 = 'a47681dbf53676d85d9e4d4c228d61b8eb337ede30082dea9e9b6891d527cfe6'
 CLEAN_ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C', 'LC_ALL': 'C'}
+# Host-specific qualification policy, not application identity configuration.
+OPERATOR_UID = 1000
+SESSION_EXPECTED = {'Active': 'yes', 'Remote': 'no', 'Type': 'tty', 'Class': 'user',
+                    'User': str(OPERATOR_UID), 'LockedHint': 'no', 'State': 'active',
+                    'Service': 'login'}
 PLAN_BOOL = {'local_nonrotational_block_backing', 'capacity_margin_pass',
              'root_owned_nonwritable_ancestors', 'targets_absent', 'mount_parent_same_filesystem'}
 PLAN_INT = {'total_bytes', 'available_bytes', 'proposed_volume_bytes', 'remaining_bytes'}
@@ -40,6 +46,7 @@ DIAGNOSTIC_CHECKS = frozenset({
     'pid_namespace', 'apport_handler', 'core_pattern', 'root_operator',
     'operator_evaluation', 'arguments', 'result_file', 'helper_integrity',
     'host_context', 'plan_preflight', 'scope_launch', 'report_validation', 'result_publication',
+    'operator_identity', 'operator_environment', 'console_session',
 })
 
 
@@ -152,6 +159,51 @@ def require_host(scoped=False):
             require('-' in fields)
             require(not any(field.startswith(('shared:', 'master:', 'propagate_from:'))
                             for field in fields[6:fields.index('-')]))
+
+
+def require_operator_identity():
+    # SUDO_* is sudo-managed context, not proof against an already privileged root.
+    # /proc loginuid and logind below independently bind the local login origin.
+    require(os.getuid() == 0 and os.environ.get('SUDO_UID') == str(OPERATOR_UID))
+    require(Path('/proc/self/loginuid').read_text().strip() == str(OPERATOR_UID))
+    require(os.environ.get('SUDO_USER') == pwd.getpwuid(OPERATOR_UID).pw_name)
+    require(os.environ.get('SUDO_COMMAND') == str(INSTALLED) + ' --diagnostic')
+
+
+def require_operator_environment():
+    allowed = set(CLEAN_ENV) | {'TERM', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'MAIL',
+                                'SUDO_UID', 'SUDO_GID', 'SUDO_USER', 'SUDO_COMMAND'}
+    require(set(os.environ) <= allowed)
+    require(os.environ.get('PATH') == CLEAN_ENV['PATH'])
+    for key in ('LANG', 'LC_ALL', 'TERM'):
+        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}', os.environ.get(key, '')) is not None)
+    for key, value in {'HOME': '/root', 'USER': 'root', 'LOGNAME': 'root',
+                       'MAIL': '/var/mail/root'}.items():
+        require(key not in os.environ or os.environ[key] == value)
+    require(os.environ.get('SHELL', '/bin/bash') in ('/bin/bash', '/usr/bin/bash'))
+    require(os.environ.get('SUDO_GID') == str(pwd.getpwuid(OPERATOR_UID).pw_gid))
+
+
+def session_ok(output, tty):
+    # Fixed bounded properties only. Never publish loginctl output/session values.
+    if len(output) > 2048:
+        return False
+    expected = {**SESSION_EXPECTED, 'TTY': tty.removeprefix('/dev/')}
+    rows = output.splitlines()
+    if len(rows) != len(expected) or any('=' not in line for line in rows):
+        return False
+    values = dict(line.split('=', 1) for line in rows)
+    return values == expected
+
+
+def require_console_session():
+    # "self", never "auto": no fallback to another graphical/login session.
+    command = ['/usr/bin/loginctl', '--no-pager', '--no-ask-password', 'show-session', 'self']
+    command += ['--property=' + key for key in (*SESSION_EXPECTED, 'TTY')]
+    result = subprocess.run(command, env=CLEAN_ENV, capture_output=True, text=True,
+                            timeout=10, check=False, close_fds=True)
+    require(result.returncode == 0 and not result.stderr
+            and session_ok(result.stdout, os.ttyname(0)))
 
 
 def failure(diagnostic=False, check='report_validation'):
@@ -300,6 +352,13 @@ def main():
         require_console()
         stage = 'helper_integrity'
         source = trusted_helper()
+        if diagnostic and not scoped:
+            stage = 'operator_identity'
+            require_operator_identity()
+            stage = 'operator_environment'
+            require_operator_environment()
+            stage = 'console_session'
+            require_console_session()
         os.environ.clear()
         os.environ.update(CLEAN_ENV)
         stage = 'host_context'
@@ -316,7 +375,7 @@ def main():
                 stage = 'scope_launch'
                 save_result(fd, failure(diagnostic, stage))
                 completed = subprocess.run(scope_command(f'{info.st_dev}:{info.st_ino}', diagnostic),
-                                           env=CLEAN_ENV, check=False)
+                                           env=CLEAN_ENV, check=False, close_fds=True)
                 stage = 'report_validation'
                 os.lseek(fd, 0, os.SEEK_SET)
                 report = validate_report(json.loads(os.read(fd, 8193)))

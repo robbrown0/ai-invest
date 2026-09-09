@@ -2,6 +2,10 @@
 
 ## Current checkpoint after subsequent owner approval
 
+The owner has now confirmed physical `/dev/tty3` becoming `/dev/pts/3` through sudo, explaining the later `tty_identity` diagnostic. See [the trust-boundary correction](CONSOLE_TRUST_BOUNDARY.md) and [current human-only checkpoint](OPERATOR_CHECKPOINT.md). A digest-pinned, exact-command sudo exception is proposed, not installed by agents. Prior failures below are historical evidence, not rewritten successes. Actual replacement-path, no-swap, crash and canary qualification remain outstanding; both authorization flags stay false.
+
+### Previous diagnostic amendment (historical)
+
 The owner subsequently reported a physical-console run returning only ordinary `metadata_unavailable`, without project secret entry. The [bounded diagnostic amendment](OPERATOR_CHECKPOINT.md) preserves that failed evidence and ordinary behavior, adds fixed symbolic check identifiers, and requires a reviewed human-only upgrade. See [independent diagnostic review](DIAGNOSTIC_REVIEW.md). No cause is inferred from the generic result; Gate 2 remains NOT PASSED.
 
 The earlier [console-wrapper amendment](OPERATOR_CHECKPOINT.md) added a reviewed human-installable command and sanitized result publication, with [independent review](WRAPPER_REVIEW.md). At that historical handoff it had not been installed and no privileged runtime test had run. The earlier 17-test checkpoint below is also retained historically; subsequent reviews record the expanded suites and remaining limitations.

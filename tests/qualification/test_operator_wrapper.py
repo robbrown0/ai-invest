@@ -259,7 +259,8 @@ class FlowTests(unittest.TestCase):
             stack.enter_context(patch.object(WRAPPER.os, 'read', return_value=json.dumps(
                 good_report() if candidate is None else candidate).encode()))
             stack.enter_context(patch.object(WRAPPER.os, 'fstat', return_value=SimpleNamespace(st_dev=1, st_ino=2)))
-            for name in ('require_console', 'require_host'):
+            for name in ('require_console', 'require_host', 'require_operator_identity',
+                         'require_operator_environment', 'require_console_session'):
                 stack.enter_context(patch.object(WRAPPER, name,
                     side_effect=OSError('SYNTHETIC_PRIVATE_DETAIL') if guard_failure == name else None))
             stack.enter_context(patch.object(WRAPPER, 'create_result', return_value=100))
@@ -290,7 +291,7 @@ class FlowTests(unittest.TestCase):
     def test_scope_keeps_real_fds_and_clean_env(self):
         code, _, run, reports, _, _ = self.exercise()
         self.assertEqual(code, 0)
-        self.assertEqual(run.call_args.kwargs, {'env': WRAPPER.CLEAN_ENV, 'check': False})
+        self.assertEqual(run.call_args.kwargs, {'env': WRAPPER.CLEAN_ENV, 'check': False, 'close_fds': True})
         self.assertTrue(reports[-1]['checks_passed'])
         self.assertFalse(reports[-1]['secret_entry_authorized'])
 
