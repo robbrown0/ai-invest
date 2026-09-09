@@ -117,12 +117,17 @@ class AlpacaPaperAccountReader:
         return 'AlpacaPaperAccountReader(<redacted>)'
 
     def read_account(self):
+        return decode_account(self._get('/v2/account'), self._scope, self._expected_account_id)
+
+    def _get(self, path, *, market_data=False):
+        # Internal transport only. Public operations construct every path below.
+        host = 'data.alpaca.markets' if market_data else 'paper-api.alpaca.markets'
         connection = None
         try:
-            connection = http.client.HTTPSConnection('paper-api.alpaca.markets', port=443,
+            connection = http.client.HTTPSConnection(host, port=443,
                 timeout=5, context=tls_context())
             connection.set_debuglevel(0)
-            connection.request('GET', '/v2/account', headers={
+            connection.request('GET', path, headers={
                 'APCA-API-KEY-ID': self._credentials.key_id,
                 'APCA-API-SECRET-KEY': self._credentials.secret_key,
                 'Accept': 'application/json', 'Accept-Encoding': 'identity'})
@@ -145,7 +150,9 @@ class AlpacaPaperAccountReader:
             body = response.read(MAX_RESPONSE + 1)
             if length is not None and len(body) != int(length):
                 raise PaperReadError('paper_response_invalid')
-            return decode_account(body, self._scope, self._expected_account_id)
+            if len(body) > MAX_RESPONSE:
+                raise PaperReadError('paper_response_invalid')
+            return body
         except PaperReadError:
             raise
         except Exception:
@@ -156,3 +163,101 @@ class AlpacaPaperAccountReader:
                     connection.close()
                 except Exception:
                     pass  # Never disclose raw transport/credential-bearing exceptions.
+
+    def _project(self, path, kind, mapper, *, array=True, market_data=False):
+        self.read_account()  # Verify expected account before any scoped projection.
+        try:
+            value = json.loads(self._get(path, market_data=market_data),
+                object_pairs_hook=unique_object, parse_constant=reject_constant, parse_float=Decimal)
+            if array:
+                if type(value) is not list or len(value) >= 200:
+                    raise ValueError()  # A full page is incomplete, never an absence claim.
+                items = tuple(mapper(item) for item in value)
+            else:
+                items = (mapper(value),)
+            return PaperProjection(self._scope, kind, items, datetime.now(timezone.utc))
+        except Exception:
+            raise PaperReadError('paper_response_invalid') from None
+
+    def positions(self):
+        return self._project('/v2/positions', 'positions', position_fields)
+
+    def orders(self):
+        # Bounded recent history, NOT complete fill history or reconciliation proof.
+        return self._project('/v2/orders?status=all&limit=200&direction=desc&nested=false', 'recent_orders', order_fields)
+
+    def latest_quote(self, symbol):
+        if type(symbol) is not str or re.fullmatch(r'[A-Z]{1,5}', symbol) is None:
+            raise PaperReadError('paper_response_invalid')
+        def fields(value):
+            if value['symbol'] != symbol: raise ValueError()
+            quote = value['quote']
+            return {'symbol': symbol, 'feed': 'iex', 'bid': amount(quote['bp']),
+                    'ask': amount(quote['ap']), 'time': timestamp(quote['t'])}
+        return self._project('/v2/stocks/' + symbol + '/quotes/latest?feed=iex', 'quote', fields, array=False, market_data=True)
+
+    def clock(self):
+        def fields(value):
+            if type(value['is_open']) is not bool: raise ValueError()
+            return {'is_open': value['is_open'], 'timestamp': timestamp(value['timestamp']),
+                    'next_close': timestamp(value['next_close']), 'next_open': timestamp(value['next_open'])}
+        return self._project('/v2/clock', 'clock', fields, array=False)
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class PaperProjection:
+    scope: Scope
+    kind: str
+    items: tuple
+    received_at: datetime
+
+    def __repr__(self):
+        return 'PaperProjection(<restricted account data>)'
+
+
+def amount(value):
+    if type(value) is Decimal:
+        if (not value.is_finite() or value.as_tuple().exponent < -9
+            or value.as_tuple().exponent > 9 or abs(value) > Decimal('1000000000')):
+            raise ValueError()
+        value = format(value, 'f')
+    elif type(value) is int:
+        value = str(value)
+    return decimal_text(value, places=9, signed=True)
+
+
+def timestamp(value):
+    if type(value) is not str or len(value) > 64: raise ValueError()
+    result = datetime.fromisoformat(value)
+    if result.tzinfo is None: raise ValueError()
+    return result.astimezone(timezone.utc)
+
+
+def identifier(value):
+    if type(value) is not str or len(value) != 36: raise ValueError()
+    parsed = UUID(value)
+    if parsed.int == 0: raise ValueError()
+    return str(parsed)
+
+
+def symbol_field(value):
+    if type(value) is not str or re.fullmatch(r'[A-Z][A-Z0-9.\-]{0,14}', value) is None: raise ValueError()
+    return value
+
+
+def position_fields(value):
+    if value['asset_class'] != 'us_equity' or value['side'] not in ('long', 'short'): raise ValueError()
+    return {'asset_id': identifier(value['asset_id']), 'symbol': symbol_field(value['symbol']),
+            'quantity': amount(value['qty']), 'side': value['side'], 'market_value': amount(value['market_value'])}
+
+
+def order_fields(value):
+    if type(value['client_order_id']) is not str or re.fullmatch(r'[A-Za-z0-9_\-]{1,48}', value['client_order_id']) is None:
+        raise ValueError()
+    if value['side'] not in ('buy', 'sell') or value['asset_class'] != 'us_equity': raise ValueError()
+    if type(value['status']) is not str or re.fullmatch(r'[a-z_]{1,32}', value['status']) is None: raise ValueError()
+    return {'id': identifier(value['id']), 'client_order_id': value['client_order_id'],
+            'asset_id': identifier(value['asset_id']), 'symbol': symbol_field(value['symbol']),
+            'side': value['side'], 'quantity': amount(value['qty']), 'filled_quantity': amount(value['filled_qty']),
+            'filled_avg_price': None if value['filled_avg_price'] is None else amount(value['filled_avg_price']),
+            'status': value['status'], 'submitted_at': timestamp(value['submitted_at'])}
