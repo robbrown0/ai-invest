@@ -1,6 +1,10 @@
 # Human Operator Checkpoint — Command-Specific Console Qualification
 
-## Current checkpoint: bounded traversal compatibility correction
+## Current checkpoint: synthetic IO policy-scope approval
+
+The traversal trial passed its finite observer milestone. Read [the recorded success and IO acceptance criteria](INPUT_OUTPUT_QUALIFICATION.md), [independent candidate review](INPUT_OUTPUT_REVIEW.md), and [the approval checkpoint](INPUT_OUTPUT_CHECKPOINT.md). The synthetic IO candidate is unwired; adding its exact command requires explicit policy-scope approval before integration/installation. Do not rerun the successful traversal test or use historical installation blocks. Both flags remain false and Gate 2 NOT PASSED.
+
+## Previous checkpoint: bounded traversal compatibility correction
 
 Use only the **[guarded traversal upgrade and console run](TRAVERSAL_CHECKPOINT.md)** after [the confirmed condition and correction evidence](TRAVERSAL_QUALIFICATION.md) and [independent review](TRAVERSAL_REVIEW.md). This tests the actual correction, not another diagnostic-only run. Original bounds/selectors remain; excluded metadata consumes existing budgets and never supplies payload evidence. Both flags remain false and Gate 2 NOT PASSED. Prior installation blocks are historical.
 
