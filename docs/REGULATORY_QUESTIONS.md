@@ -1,0 +1,56 @@
+# Regulatory and Privacy Questions
+
+**Purpose:** Identify questions for qualified legal/compliance review and keep technical choices separate from legal conclusions.
+
+**Status:** DRAFT — issue-spotting only; no legal advice, compliance claim or legal determination.
+
+## Boundary and source use
+
+V0 is a private-access/LAN-only, experimental paper/shadow/backtest research application; its source repository is public. Source-code licensing remains a separate, explicit future product-owner decision. No software license is introduced, and public visibility does not imply permission for reuse. This document does not determine whether any law applies or whether an exemption exists. It does not authorize advice to outside customers, live automated trading, fees or distribution of market data. Ordinary internal paper research may proceed after human design approval while commercialization questions remain open; applicable provider terms and data-use permissions still matter in V0.
+
+US federal primary sources below establish questions, not a complete jurisdictional analysis. Future users, entity formation, location, marketing, advice, control over accounts and compensation may change the analysis. State securities/privacy law and non-US requirements require qualified assessment when actual plans are known. Sources were consulted for this design on 2026-09-08; counsel must verify then-current rules and facts before a gated activity.
+
+## Review register
+
+| ID | REQUIRES LEGAL/COMPLIANCE REVIEW | TECHNICAL DESIGN DECISION | Gate and evidence owner |
+| --- | --- | --- | --- |
+| LEG-01 | Does proposed advice about securities, personalization, discretion, compensation or business activity create investment-adviser, registration, state or other obligations? | Document advice/authority boundaries and distinguish research from execution; collect no outside clients in V0. | Before external service or real-money expansion; product owner with securities counsel. |
+| LEG-02 | What duties, disclosures and oversight apply to automated advice, portfolio optimization and AI limitations? | Preserve methodology, evidence, risk profiles, decisions, model versions, overrides and uncertainties; no claim AI beats the market. | Before public advice/onboarding; product, model lead and counsel. |
+| LEG-03 | Are subscription, usage, AUM or performance-based fees legally appropriate for the actual service and clients? | Select no pricing model; keep cost allocation separate from future billing; no V0 billing. | Before quoting/collecting fees; business owner and counsel. |
+| LEG-04 | What broker/provider agreements, OAuth authorization, trading discretion, custody or withdrawal restrictions apply? | Execution alone holds paper authorization; no transfers/withdrawals, shared live grants or generic OAuth in V0. | Before additional broker permissions, real money or customer connection; financial-systems owner and counsel. |
+| LEG-05 | Which financial privacy/security duties and state/non-US privacy rights apply? What notices, lawful basis, processor contracts and cross-border restrictions are needed? | Classify/minimize data; isolate tenants; encrypt and redact; no PII/secrets in expert packets; require explicit external-disclosure review. | Before outside-customer data or new external processor; privacy/security owners and counsel. |
+| LEG-06 | What customer consent, risk-profile/suitability or other standard-of-care obligations apply to recommendations and automation? | Version risk profiles, authorization, consent and decision history; user consent cannot override system risk limits. | Before customer advice/live automation; product and counsel. |
+| LEG-07 | Which disclosures are needed for simulated results, losses, liquidity, broker outages, AI uncertainty, conflicts and expenses? | Label mode, unavailable data, costs, risk limits, assumptions and provisional results; preserve benchmark comparability. | Before external reports/marketing; product/research and counsel. |
+| LEG-08 | What market-data licenses allow automated/non-display use, caching, derived features, commercial use, redistribution and external-model processing? | Maintain provider/feed entitlement and rights metadata; suppress unlicensed export/redistribution; no inference that free access permits commercial use. | Before each feed/use/export, including V0; data owner with provider/counsel. |
+| LEG-09 | Which record categories and retention periods apply, and how do deletion requests, legal holds, audit integrity and restored backups interact? | Policy-driven retention by category/tenant, append-only financial history, export manifests, documented holds and deletion propagation; no invented statutory period. | Before customer records or production retention policy; data/privacy and counsel. |
+| LEG-10 | What incident thresholds, notification recipients/deadlines, contractual notices and evidence-preservation duties apply? | Design incident inventory, timestamps, containment, recovery, contacts and evidence handling; no hardcoded claim of a universal notification clock. | Before external customer data/live service; security/privacy and counsel. |
+| LEG-11 | Are benchmarks, research text, SEC filings, news and AI-derived outputs usable under copyright and service terms? | Preserve citations/rights metadata, minimize quotations, restrict archives and packet content to permitted scope; model artifact licenses recorded. | Before ingestion redistribution or commercial research; data/model owners and counsel. |
+| LEG-12 | What commercial geography, entity, contracts, disputes and customer support obligations are appropriate? | Keep tenant/export/audit/provider interfaces portable; no public sign-up or implied regulated service in V0. | Before launch commitments; product owner and counsel. |
+
+## Primary-source anchors and limits
+
+The SEC's robo-adviser guidance identifies disclosure, client-information and compliance-program concerns for automated advisory services. That makes service facts and human oversight questions essential; it does not determine this project's classification. See [SEC staff guidance on robo-advisers](https://www.sec.gov/investment/im-guidance-2017-02.pdf) and the [SEC guidance announcement](https://www.sec.gov/newsroom/press-releases/2017-52).
+
+Performance-based compensation has specific qualified-client rules and changing threshold orders; do not assume tiny experimental capital makes any future fee permissible. Subscription and AUM arrangements also need service-specific advice. We deliberately select neither pricing nor a qualifying threshold. See [SEC performance-based advisory fees rule](https://www.sec.gov/rules-regulations/2021/11/performance-based-investment-advisory-fees).
+
+The SEC marketing rule addresses fair presentation, performance information and records, including restrictions on hypothetical results. Internal experimental charts are not approval for marketing them publicly; counsel should assess audience, method, gross/net presentation, benchmark and required records before publication. See [SEC investment adviser marketing guide](https://www.sec.gov/resources-small-businesses/small-business-compliance-guides/investment-adviser-marketing) and [current staff marketing FAQs](https://www.sec.gov/rules-regulations/staff-guidance/division-investment-management-frequently-asked-questions/marketing-compliance-frequently-asked-questions).
+
+The 2024 Regulation S-P amendments address incident response and customer notification for covered institutions. Applicability, timing and interaction with other laws require legal review; the design's incident process must support multiple obligations without claiming any single universal deadline. See [SEC adopted Regulation S-P amendments](https://www.sec.gov/newsroom/press-releases/2024-58).
+
+Alpaca documents separate paper credentials/endpoints, and its OAuth guidance says a token can authorize a live account, a paper account or both. Omitting the OAuth environment can request both; an application mode label is not proof of credential scope. The technical V0 recommendation is paper-specific credentials under execution-only OpenBao custody, with no OAuth onboarding. Future OAuth requires explicit environment selection and independently verified authorization scope/account identity before use. See [Alpaca authentication](https://docs.alpaca.markets/us/docs/authentication) and [OAuth authorization](https://docs.alpaca.markets/us/docs/using-oauth2-and-trading-api).
+
+Alpaca Basic equity data is limited to IEX real-time coverage; free access is neither consolidated coverage nor a blanket redistribution entitlement. Record feed provenance and verify intended usage terms. Exchange policies separately address automated/non-display use and AI-related uses; a paid license is not silently assumed necessary or purchased. See [Alpaca market-data plans](https://docs.alpaca.markets/us/docs/about-market-data-api), [Nasdaq US data policies](https://www.nasdaqtrader.com/content/AdministrationSupport/Policy/USEquitiesandOptionsDataPolicies.pdf), and [Nasdaq AI data policy](https://www.nasdaqtrader.com/content/AdministrationSupport/AgreementsData/Data_AI_Policy.pdf).
+
+## Privacy design decisions for V0
+
+- Collect identity-provider subject, membership/roles and minimum preferences; avoid unnecessary name, address, tax identifiers, financial suitability questionnaires or contact uploads.
+- Keep brokerage identifiers confidential and tokens/keys secret. Only execution handles brokerage authorization. Tenant financial history, private research and audit references remain tenant-scoped even when instrument prices are public.
+- Manual export is an external disclosure. Minimize to approved aliases/weights/public evidence, preview exact content, check data rights and record user confirmation. No external model receives secrets; prompts alone do not enforce this.
+- Keep an export/disclosure record with content manifest, intended recipient label, timestamp and user authorization. Minimized portfolio composition can still be sensitive; it is not automatically anonymous.
+- Define deletion/export as controlled workflows with tenant verification and holds; do not equate deleting an account row with erasing encrypted backups or statutory records. Retention durations await facts and legal validation.
+
+## Commercialization gates and unresolved questions
+
+Before serving outside customers or enabling live automation, obtain a written, qualified assessment of actual service/entity/jurisdiction, advice/authority/compensation, provider contracts, privacy/disclosures/consent, record retention, incident notification and data/model licensing. Assign accountable operators and validate controls rather than treating a disclaimer or user checkbox as compliance.
+
+The product owner must decide intended customer geography, entity/business scope, whether advice is personalized or discretionary, candidate pricing alternatives, allowed external research disclosures and market-data vendors before counsel can answer many questions. V0 does not need a final pricing model. Performance fees remain specifically gated. No unresolved legal question permits weakening financial, secrecy or tenant controls.

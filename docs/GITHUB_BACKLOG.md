@@ -1,0 +1,26 @@
+# GitHub Backlog Map
+
+**Status:** DRAFT — proposed implementation; Design Gate 1 approval required.
+**Purpose:** Map the 12 V0 epics to created GitHub issues and conceptual milestones.
+**Created:** 2026-09-08, after requirements/architecture completion and specialist reviews.
+
+Every issue includes problem, scope, acceptance criteria, security considerations, testing requirements, dependencies and out-of-scope boundaries. All are proposed P0 work and explicitly blocked on product-owner approval of Design Gate 1. None has been implemented or closed by this phase.
+
+| Epic | GitHub issue | Conceptual milestone | Dependencies |
+| --- | --- | --- | --- |
+| V0-01 | [#1: Qualify local Ubuntu development storage, Percona TDE and OpenBao recovery](https://github.com/robbrown0/ai-invest/issues/1) | M1 Foundations | Design Gate 1 approval |
+| V0-02 | [#2: Build identity, membership and tenant isolation foundation](https://github.com/robbrown0/ai-invest/issues/2) | M1 Foundations | [#1](https://github.com/robbrown0/ai-invest/issues/1) |
+| V0-03 | [#3: Build licensed market-data ingestion and point-in-time evidence](https://github.com/robbrown0/ai-invest/issues/3) | M2 Data and ledger | [#1](https://github.com/robbrown0/ai-invest/issues/1), [#2](https://github.com/robbrown0/ai-invest/issues/2) |
+| V0-04 | [#4: Build portfolio ledger and deterministic broker simulator](https://github.com/robbrown0/ai-invest/issues/4) | M2 Data and ledger | [#1](https://github.com/robbrown0/ai-invest/issues/1), [#2](https://github.com/robbrown0/ai-invest/issues/2) |
+| V0-05 | [#5: Implement deterministic proposal risk and reservation controls](https://github.com/robbrown0/ai-invest/issues/5) | M3 Controlled PAPER slice | [#2](https://github.com/robbrown0/ai-invest/issues/2), [#3](https://github.com/robbrown0/ai-invest/issues/3), [#4](https://github.com/robbrown0/ai-invest/issues/4), [#7](https://github.com/robbrown0/ai-invest/issues/7) |
+| V0-06 | [#6: Implement PAPER execution, reconciliation and emergency stop](https://github.com/robbrown0/ai-invest/issues/6) | M3 Controlled PAPER slice | [#4](https://github.com/robbrown0/ai-invest/issues/4), [#5](https://github.com/robbrown0/ai-invest/issues/5), [#7](https://github.com/robbrown0/ai-invest/issues/7) |
+| V0-07 | [#7: Build audit, safe job delivery and release/recovery evidence](https://github.com/robbrown0/ai-invest/issues/7) | M1 Foundations | [#1](https://github.com/robbrown0/ai-invest/issues/1), [#2](https://github.com/robbrown0/ai-invest/issues/2) |
+| V0-08 | [#8: Build local research memory and governed inference funnel](https://github.com/robbrown0/ai-invest/issues/8) | M4 Research and experiments | [#2](https://github.com/robbrown0/ai-invest/issues/2), [#3](https://github.com/robbrown0/ai-invest/issues/3), [#7](https://github.com/robbrown0/ai-invest/issues/7) |
+| V0-09 | [#9: Build accessible portfolio and safety UX](https://github.com/robbrown0/ai-invest/issues/9) | M3 Controlled PAPER slice | [#2](https://github.com/robbrown0/ai-invest/issues/2), [#4](https://github.com/robbrown0/ai-invest/issues/4), [#5](https://github.com/robbrown0/ai-invest/issues/5), [#6](https://github.com/robbrown0/ai-invest/issues/6), [#7](https://github.com/robbrown0/ai-invest/issues/7) |
+| V0-10 | [#10: Build manual frontier review packet and safe import](https://github.com/robbrown0/ai-invest/issues/10) | M4 Research and experiments | [#8](https://github.com/robbrown0/ai-invest/issues/8), [#9](https://github.com/robbrown0/ai-invest/issues/9) |
+| V0-11 | [#11: Build preregistered A/B/C/D experiment and cost accounting](https://github.com/robbrown0/ai-invest/issues/11) | M4 Research and experiments | [#3](https://github.com/robbrown0/ai-invest/issues/3), [#4](https://github.com/robbrown0/ai-invest/issues/4), [#7](https://github.com/robbrown0/ai-invest/issues/7), [#8](https://github.com/robbrown0/ai-invest/issues/8) |
+| V0-12 | [#12: Run integrated adversarial, recovery and owner UAT gate](https://github.com/robbrown0/ai-invest/issues/12) | M5 PAPER readiness gate | [#1](https://github.com/robbrown0/ai-invest/issues/1), [#2](https://github.com/robbrown0/ai-invest/issues/2), [#3](https://github.com/robbrown0/ai-invest/issues/3), [#4](https://github.com/robbrown0/ai-invest/issues/4), [#5](https://github.com/robbrown0/ai-invest/issues/5), [#6](https://github.com/robbrown0/ai-invest/issues/6), [#7](https://github.com/robbrown0/ai-invest/issues/7), [#8](https://github.com/robbrown0/ai-invest/issues/8), [#9](https://github.com/robbrown0/ai-invest/issues/9), [#10](https://github.com/robbrown0/ai-invest/issues/10), [#11](https://github.com/robbrown0/ai-invest/issues/11) |
+
+Milestones are conceptual groupings; no release dates or automatic authority are implied. Review [IMPLEMENTATION_BACKLOG.md](IMPLEMENTATION_BACKLOG.md) for the full specifications and [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for sequencing. P1/P2/Future requirements remain documented; no speculative proliferation of tickets.
+
+This design PR refers to these issues but does not resolve them. Do not begin implementation or enable any service/credential until the human explicitly approves the design gate and applicable qualification scope.
