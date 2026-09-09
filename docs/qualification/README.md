@@ -2,6 +2,8 @@
 
 ## Current checkpoint after subsequent owner approval
 
+The subsequent [console-wrapper amendment](OPERATOR_CHECKPOINT.md) adds a reviewed human-installable command and sanitized result publication, with [independent review](WRAPPER_REVIEW.md). It is not installed and no privileged runtime test has run. The earlier 17-test checkpoint below is retained historically; the wrapper review records the expanded suite and remaining limitations.
+
 Gate 2 remains **NOT PASSED**. The owner approved the dedicated local LUKS2 loopback direction, sole-owner custody and project-scoped protections. Assessment resumed with a read-only preflight and synthetic regression tests; actual storage creation and protected secret entry have NOT occurred. See the [approved prerequisite assessment](APPROVED_PREREQUISITES.md), [required non-secret human operator checkpoint](OPERATOR_CHECKPOINT.md) and [independent checkpoint review](OPERATOR_REVIEW.md).
 
 The original stop and its observations below are preserved as historical evidence. Their documentation-only/no-code and undecided-owner wording describe that earlier checkpoint, not the subsequent qualification tooling. QH-02/QH-03 remain unqualified; no dependent Gate 2 runtime result is claimed.
