@@ -274,27 +274,53 @@ class Installation(unittest.TestCase):
     def test_sequential_upgrade_preserves_prior_rollback_sets(self):
         with tempfile.TemporaryDirectory(prefix='ai-invest-sequential-') as tmp:
             root=Path(tmp);lib=root/'lib';lib.mkdir(mode=0o700);policy=root/'sudoers';targets=(root/'command',lib/'terminal',lib/'storage',policy)
-            old=b'OLD';first=b'FIRST';second=b'SECOND';mode=0o600
+            old=b'OLD';first=b'FIRST';scope=b'SCOPE';diagnostic=b'DIAGNOSTIC';final=b'FINAL';mode=0o600
             for target in targets: target.write_bytes(old);target.chmod(mode)
             def digest(data): return hashlib.sha256(data).hexdigest()
-            baseline=tuple((target,mode,digest(old)) for target in targets);first_version=tuple((target,mode,digest(first)) for target in targets)
+            contents=(old,first,scope,diagnostic,final)
+            names=('baseline','ssh-v1','ssh-scope-v2','ssh-diagnostic-v3')
+            versions=tuple(tuple((target,mode,digest(data)) for target in targets) for data in contents)
             sources=('one','two','three','four')
             def run(files,approved,content):
                 for source in sources: (root/source).write_bytes(content);(root/source).chmod(mode)
                 def fake_artifact(path,expected,requested_mode):
-                    values={digest(old):old,digest(first):first,digest(second):second}
+                    values={digest(data):data for data in contents}
                     if expected not in values: raise RuntimeError('wrong_digest')
                     return values[expected]
                 def fake_replace(path,data,requested_mode):
                     temp=path.parent/('.tmp-'+path.name);temp.write_bytes(data);temp.chmod(requested_mode);os.replace(temp,path)
-                with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',baseline),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),patch.object(I,'parents'),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--upgrade']):
+                with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',versions[0]),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),patch.object(I,'parents'),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--upgrade']):
                     self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
-            first_files=tuple((source,target,mode,digest(first)) for source,target in zip(sources,targets));second_files=tuple((source,target,mode,digest(second)) for source,target in zip(sources,targets))
-            run(first_files,(('baseline',baseline),),first)
-            run(second_files,(('baseline',baseline),('ssh-v1',first_version)),second)
-            self.assertTrue(all(I.backup_path(target,'baseline').exists() for target in targets))
+            for index in range(1,len(contents)):
+                next_files=tuple((source,target,mode,digest(contents[index])) for source,target in zip(sources,targets))
+                approved=tuple((names[prior],versions[prior]) for prior in range(index))
+                run(next_files,approved,contents[index])
+            for name in names[:-1]:
+                self.assertTrue(all(I.backup_path(target,name).exists() for target in targets))
+            self.assertTrue(all(target.read_bytes()==final for target in targets))
+
+    def test_rollback_selects_newest_verified_generation_and_retains_older(self):
+        with tempfile.TemporaryDirectory(prefix='ai-invest-rollback-generations-') as tmp:
+            root=Path(tmp); lib=root/'lib'; lib.mkdir(mode=0o700); policy=root/'sudoers'
+            targets=(root/'command',lib/'terminal',lib/'storage',policy); mode=0o600
+            payloads=(b'BASE',b'SSH',b'SCOPE',b'DIAG',b'CURRENT')
+            for target in targets: target.write_bytes(payloads[-1]); target.chmod(mode)
+            def digest(data): return hashlib.sha256(data).hexdigest()
+            current=tuple((target,mode,digest(payloads[-1])) for target in targets)
+            approved=tuple((name,tuple((target,mode,digest(data)) for target in targets))
+                           for name,data in zip(('baseline','ssh-v1','ssh-scope-v2','ssh-diagnostic-v3'),payloads[:-1]))
+            for name,data in zip(('baseline','ssh-v1','ssh-scope-v2','ssh-diagnostic-v3'),payloads[:-1]):
+                for target in targets:
+                    backup=I.backup_path(target,name); backup.write_bytes(data); backup.chmod(mode)
+            values={digest(data):data for data in payloads}
+            def fake_artifact(path,expected,requested_mode):
+                return values[expected]
+            with patch.object(I,'FILES',tuple((str(target),target,mode,digest(payloads[-1])) for target in targets)), \
+                 patch.object(I,'APPROVED_OLD_VERSIONS',approved), patch.object(I,'artifact',side_effect=fake_artifact):
+                selected=I.rollback_candidates()
+            self.assertEqual(selected[0],'ssh-diagnostic-v3')
             self.assertTrue(all(I.backup_path(target,'ssh-v1').exists() for target in targets))
-            self.assertTrue(all(target.read_bytes()==second for target in targets))
+            self.assertTrue(all(I.backup_path(target,'ssh-scope-v2').exists() for target in targets))
 
     def test_upgrade_reports_bounded_failure_stage(self):
         output=io.StringIO()
