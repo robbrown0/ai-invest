@@ -51,19 +51,24 @@ class PaperWebReader:
         if expected is not None and account!=expected: raise Refused()
         parsed=decode_account(raw,self.scope,account)
         return account,{'account_id':str(account),'cash':str(parsed.cash),'equity':str(parsed.equity),
+            'buying_power':str(amount(data['buying_power'])) if 'buying_power' in data else None,
             'status':parsed.status,'trading_blocked':parsed.trading_blocked,
             'account_blocked':parsed.account_blocked,'observed_at':parsed.received_at.isoformat()}
 
     async def dashboard(self,expected):
         async with asyncio.timeout(25):
             account,summary=await self.account(expected)
-            result={'account':summary,'positions':[],'orders':[],'market':None,
+            result={'account':summary,'positions':[],'orders':[],'market':None,'clock':None,
                     'market_status':'UNAVAILABLE','orders_scope':'Recent orders only; not complete fill reconciliation'}
             for path,key,mapper in (('/v2/positions','positions',position_fields),
                 ('/v2/orders?status=all&limit=200&direction=desc&nested=false','orders',order_fields)):
                 values=json.loads(await self.get(path),object_pairs_hook=unique_object,parse_constant=reject_constant,parse_float=Decimal)
                 if type(values) is not list or len(values)>=200: raise Refused()
                 result[key]=plain([mapper(value) for value in values])
+            clock=json.loads(await self.get('/v2/clock'),object_pairs_hook=unique_object,parse_constant=reject_constant)
+            if type(clock) is not dict or type(clock.get('is_open')) is not bool: raise Refused()
+            result['clock']=plain({'is_open':clock['is_open'],'timestamp':timestamp(clock['timestamp']),
+                'next_open':timestamp(clock['next_open']),'next_close':timestamp(clock['next_close'])})
             try:
                 value=json.loads(await self.get('/v2/stocks/SPY/quotes/latest?feed=iex',True),
                     object_pairs_hook=unique_object,parse_constant=reject_constant,parse_float=Decimal)

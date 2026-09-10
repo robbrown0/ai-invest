@@ -6,6 +6,7 @@ COPY backend /opt/ai-invest/backend
 COPY execution /opt/ai-invest/execution
 COPY frontend /opt/ai-invest/frontend
 COPY scripts/web_v0.py /opt/ai-invest/scripts/web_v0.py
+COPY scripts/paper_activate.py /opt/ai-invest/scripts/paper_activate.py
 RUN chmod 0444 /usr/local/lib/ai-invest/runtime_guard.so
 USER 10003:26
 ENV LD_PRELOAD=/usr/local/lib/ai-invest/runtime_guard.so

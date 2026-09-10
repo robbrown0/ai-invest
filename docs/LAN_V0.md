@@ -1,5 +1,22 @@
 # Running the HTTP LAN workspace
 
+## Professional workspace update
+
+The running shell now has desktop/sidebar and mobile navigation for Dashboard,
+Research, Opportunities, Portfolio, Orders, Strategies, Activity and System.
+Live service health, structured local research questions, counterarguments,
+missing evidence and safe loading/error states work. Unimplemented features are
+explicit empty states, not fabricated account values, charts or rankings.
+Activity is session-only; no browser persistent storage or analytics was added.
+
+Real Chromium fixture checks passed 66 assertions across desktop, iPad-sized and
+iPhone-sized viewports, including navigation, no horizontal overflow, inert text
+rendering and no credential fields/cookies. Actual Apple-device testing remains
+outstanding. The web service alone was rebuilt/restarted; the model and database
+were not replaced. Current PAPER provisioning is [prepared here](PAPER_PROVISIONING.md),
+not yet installed or exercised. The following original deployment record is
+preserved as historical evidence; its no-financial-data HTTP boundary still applies.
+
 Status: **deployed and responding on the owner-approved private IPv4 address, port8443, over HTTP**. Exact host binding is in ignored `infrastructure/lan/deployment.env`, not public source. No TLS, certificate enrollment/automation, public listener or credential provisioning was added. The earlier HTTPS gateway remains unchanged and stopped. Gate 2 NOT PASSED; both qualification authorization flags remain false.
 
 ## What works now
