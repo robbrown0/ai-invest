@@ -97,7 +97,11 @@ def require_ssh_environment():
     allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
                         'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
                         'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE'}
-    require(set(os.environ)<=allowed)
+    unknown=set(os.environ)-allowed
+    for key in unknown:
+        require(re.fullmatch(r'LC_[A-Z0-9_]+',key) is not None)
+        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
+    require(not (unknown-set(key for key in unknown if key.startswith('LC_'))))
     for key in ('LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','PYTHONSTARTUP','BASH_ENV'):
         require(key not in os.environ)
     for key in ('LANG','LC_ALL','TERM'):

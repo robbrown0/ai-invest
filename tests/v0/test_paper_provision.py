@@ -114,6 +114,7 @@ class Boundaries(unittest.TestCase):
         safe=dict(P.CLEAN,PATH='/usr/local/bin',TERM='xterm-256color',SUDO_GID='1000')
         with patch.dict(P.os.environ,safe,clear=True): P.require_ssh_environment()
         with patch.dict(P.os.environ,dict(safe,SSH_AUTH_SOCK='/run/user/1000/agent.sock'),clear=True): P.require_ssh_environment()
+        with patch.dict(P.os.environ,dict(safe,LC_TIME='C',LC_MONETARY='C'),clear=True): P.require_ssh_environment()
         with patch.dict(P.os.environ,dict(safe,SSH_AUTH_SOCK='/tmp/attacker.sock'),clear=True):
             with self.assertRaises(P.Refused): P.require_ssh_environment()
         device=os.makedev(136,7); character=SimpleNamespace(st_mode=stat.S_IFCHR,st_rdev=device)
