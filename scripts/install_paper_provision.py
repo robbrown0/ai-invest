@@ -271,20 +271,12 @@ def current_generation_valid():
         marker=manifest_path()
         if marker.is_symlink(): return False
         if marker.exists():
-            try:
-                validate_manifest(CURRENT_VERSION,current_files)
-                return True
-            except BaseException:
-                # Reconcile only a marker that exactly names a known approved
-                # generation; unknown/corrupt markers remain fail-closed.
-                known=False
-                for name,version_files in APPROVED_OLD_VERSIONS:
-                    try:
-                        validate_manifest(name,version_files); known=True; break
-                    except BaseException:
-                        continue
-                if not known: return False
-                marker.unlink(); sync_parent(marker)
+            info=marker.lstat()
+            require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_gid==0 and info.st_nlink==1 and stat.S_IMODE(info.st_mode)==MANIFEST_MODE and info.st_size<=65536)
+            # The marker is derived metadata, never an authority. Rebuild it
+            # from the independently verified current artifacts on every
+            # current-generation no-op/recovery path.
+            marker.unlink(); sync_parent(marker)
         write(marker,manifest_bytes(CURRENT_VERSION,current_files),MANIFEST_MODE)
         validate_manifest(CURRENT_VERSION,current_files)
         return True
