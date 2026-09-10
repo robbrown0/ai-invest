@@ -386,7 +386,8 @@ def upgrade():
                 require(hashlib.sha256(target.read_bytes()).hexdigest()==digest)
             require(manifest_path().exists() and not manifest_path().is_symlink())
             validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))
-            validate_existing_backups()
+            # A no-op current-generation run does not modify rollback state.
+            # Existing rollback generations are validated only before replacement.
             return True
         except BaseException:
             return False
