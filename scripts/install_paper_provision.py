@@ -16,7 +16,7 @@ SUDOERS=Path('/etc/sudoers')
 SUDOERS_DIR=Path('/etc/sudoers.d')
 CLEAN={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 FILES=(
- ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'3cf6604298ea73a20efb3a6fc5f84f77411a6871564dc226a84b919ebef7c530'),
+ ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'c8c529a050334a787c17533c4566e117c505cb86eea7490d80a577c9ee3321e4'),
  ('scripts/qualification/terminal_exchange.py',LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  ('scripts/setup_postgres_dirs.py',LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
@@ -141,8 +141,14 @@ SESSION_V19_OLD_FILES=(
  (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
 )
-APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES),('ssh-session-v4',SESSION_OLD_FILES),('ssh-session-v5',SESSION_V5_OLD_FILES),('ssh-session-v6',SESSION_V6_OLD_FILES),('ssh-session-v7',SESSION_V7_OLD_FILES),('ssh-session-v8',SESSION_V8_OLD_FILES),('ssh-session-v9',SESSION_V9_OLD_FILES),('ssh-session-v10',SESSION_V10_OLD_FILES),('ssh-session-v11',SESSION_V11_OLD_FILES),('ssh-session-v12',SESSION_V12_OLD_FILES),('ssh-session-v13',SESSION_V13_OLD_FILES),('ssh-session-v14',SESSION_V14_OLD_FILES),('ssh-session-v15',SESSION_V15_OLD_FILES),('ssh-session-v16',SESSION_V16_OLD_FILES),('ssh-session-v17',SESSION_V17_OLD_FILES),('ssh-session-v18',SESSION_V18_OLD_FILES),('ssh-session-v19',SESSION_V19_OLD_FILES))
-CURRENT_VERSION='ssh-session-v20'
+SESSION_V20_OLD_FILES=(
+ (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'3cf6604298ea73a20efb3a6fc5f84f77411a6871564dc226a84b919ebef7c530'),
+ (LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
+ (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
+ (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
+)
+APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES),('ssh-session-v4',SESSION_OLD_FILES),('ssh-session-v5',SESSION_V5_OLD_FILES),('ssh-session-v6',SESSION_V6_OLD_FILES),('ssh-session-v7',SESSION_V7_OLD_FILES),('ssh-session-v8',SESSION_V8_OLD_FILES),('ssh-session-v9',SESSION_V9_OLD_FILES),('ssh-session-v10',SESSION_V10_OLD_FILES),('ssh-session-v11',SESSION_V11_OLD_FILES),('ssh-session-v12',SESSION_V12_OLD_FILES),('ssh-session-v13',SESSION_V13_OLD_FILES),('ssh-session-v14',SESSION_V14_OLD_FILES),('ssh-session-v15',SESSION_V15_OLD_FILES),('ssh-session-v16',SESSION_V16_OLD_FILES),('ssh-session-v17',SESSION_V17_OLD_FILES),('ssh-session-v18',SESSION_V18_OLD_FILES),('ssh-session-v19',SESSION_V19_OLD_FILES),('ssh-session-v20',SESSION_V20_OLD_FILES))
+CURRENT_VERSION='ssh-session-v21'
 MANIFEST_MODE=0o400
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),

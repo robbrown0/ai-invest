@@ -108,7 +108,7 @@ def _require_ssh_terminal(environment):
     check(foreground==os.getpgrp(), 'terminal_not_foreground')
 
 
-TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_relay_display','terminal_relay_wayland_display','terminal_relay_tmux','terminal_relay_sty','terminal_relay_ssh_original_command','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')
+TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_relay_display','terminal_relay_wayland_display','terminal_relay_tmux','terminal_relay_sty','terminal_relay_ssh_original_command','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')+('session_list_api','session_row_shape','session_not_unique')
 def require_ssh_terminal(environment):
     try:
         return _require_ssh_terminal(environment)
@@ -165,23 +165,29 @@ def _ssh_session_match(values,tty):
 def require_ssh_session():
     # `show-session self` is not stable across sudo/logind implementations:
     # sudo may retain the caller's audit session while the root process is not
-    # itself addressable as a logind session.  Prefer it, then resolve the
+    # itself addressable as a logind session. Prefer it, then resolve the
     # unique session owning this PTY from bounded logind metadata.
     tty=os.ttyname(0)
     direct=_session_properties('self')
     if _ssh_session_match(direct,tty): return
-    result=subprocess.run(['/usr/bin/loginctl','--no-pager','--no-ask-password','list-sessions','--no-legend'],
-                          env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
-    require(result.returncode==0 and not result.stderr and len(result.stdout)<=4096)
+    try:
+        result=subprocess.run(['/usr/bin/loginctl','--no-pager','--no-ask-password','list-sessions','--no-legend'],
+                              env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
+    except Exception:
+        raise StageFailure('ssh_session','session_list_api')
+    if result.returncode!=0 or result.stderr or len(result.stdout)>4096:
+        raise StageFailure('ssh_session','session_list_api')
     candidates=[]
     for line in result.stdout.splitlines():
         fields=line.split()
-        require(2<=len(fields)<=6 and len(fields[0])<=32)
+        if not (2<=len(fields)<=6 and len(fields[0])<=32):
+            raise StageFailure('ssh_session','session_row_shape')
         session=fields[0]
         if session in ('self','') or not re.fullmatch(r'[0-9]+',session): continue
         values=_session_properties(session)
         if _ssh_session_match(values,tty): candidates.append(session)
-    require(len(candidates)==1)
+    if len(candidates)!=1:
+        raise StageFailure('ssh_session','session_not_unique')
 
 
 def ssh_metadata_ok(snapshot):
