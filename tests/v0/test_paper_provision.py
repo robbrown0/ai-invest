@@ -198,6 +198,11 @@ class Boundaries(unittest.TestCase):
         self.assertNotIn('ALL=(ALL)',policy)
         for line in policy.splitlines():
             if line.startswith('Defaults'): self.assertTrue(line.startswith('Defaults!AI_INVEST_PAPER_PROVISION '))
+    def test_repeat_entrypoints_have_explicit_noop_states(self):
+        with patch.object(I.os,'getuid',return_value=0), patch.object(I,'validate'), patch.object(I,'current_generation_valid',return_value=True), patch.object(I,'DEPENDENCIES',()):
+            with patch.object(I.sys,'argv',['installer']): self.assertEqual(I.install(),'already_installed_not_provisioned')
+            with patch.object(I.sys,'argv',['installer','--upgrade']): self.assertEqual(I.install(),'already_current_not_provisioned')
+
     def test_installer_nonroot_refused_no_files(self):
         with patch.object(I.os,'getuid',return_value=1000),patch.object(I,'write') as write:
             with self.assertRaises(RuntimeError): I.install()

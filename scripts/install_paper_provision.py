@@ -262,6 +262,18 @@ def validate_manifest(version_name, version_files, allow_missing=False):
     return artifact(path,manifest_digest(version_name,version_files),MANIFEST_MODE)
 
 
+def current_generation_valid():
+    try:
+        for _,target,mode,digest in FILES:
+            artifact(target,digest,mode)
+            require(hashlib.sha256(target.read_bytes()).hexdigest()==digest)
+        require(manifest_path().exists() and not manifest_path().is_symlink())
+        validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))
+        return True
+    except BaseException:
+        return False
+
+
 def replace_file(path,data,mode):
     fd,name=tempfile.mkstemp(prefix='paper-provision.',dir=path.parent)
     temporary=Path(name)
@@ -379,19 +391,7 @@ def upgrade():
                               [read(path,digest) for path,digest in DEPENDENCIES],
                               require(stat.S_IMODE(LIB.stat().st_mode)==0o700)))
     old=[];new=[];backups=[];old_version=None;old_marker=None;marker_backup=None
-    def already_current():
-        try:
-            for _,target,mode,digest in FILES:
-                artifact(target,digest,mode)
-                require(hashlib.sha256(target.read_bytes()).hexdigest()==digest)
-            require(manifest_path().exists() and not manifest_path().is_symlink())
-            validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))
-            # A no-op current-generation run does not modify rollback state.
-            # Existing rollback generations are validated only before replacement.
-            return True
-        except BaseException:
-            return False
-    if already_current():
+    if current_generation_valid():
         return 'already_current_not_provisioned'
     def inspect_old():
         nonlocal old,backups,old_version,old_marker,marker_backup
@@ -460,6 +460,14 @@ def upgrade():
 def rollback_upgrade():
     require(os.getuid()==0 and sys.argv[1:]==['--rollback-upgrade'])
     validate()
+    if not manifest_path().exists() or manifest_path().is_symlink():
+        for version_name,version_files in APPROVED_OLD_VERSIONS:
+            try:
+                for target,mode,digest in version_files: artifact(target,digest,mode)
+                validate_manifest(version_name,version_files)
+                return 'already_rolled_back_previous_version'
+            except BaseException:
+                continue
     version_name,version_files,old,backups,marker_backup,marker_data=rollback_candidates()
     try:
         for (target,mode,digest),data in zip(version_files,old): replace_file(target,data,mode)
@@ -502,8 +510,12 @@ def install():
     if sys.argv[1:]==['--upgrade']: return upgrade()
     if sys.argv[1:]==['--rollback-upgrade']: return rollback_upgrade()
     validate()
+    if sys.argv[1:]==[] and current_generation_valid():
+        return 'already_installed_not_provisioned'
     if sys.argv[1:]==['--rollback']:
         # Remove only this exact policy. Public helper copies remain inert evidence.
+        if not POLICY.exists() and not POLICY.is_symlink():
+            return 'policy_already_removed_helpers_preserved'
         read(POLICY,FILES[-1][3]);POLICY.unlink();sync_parent(POLICY);validate()
         return 'policy_removed_helpers_preserved'
     for path,digest in DEPENDENCIES: read(path,digest)
