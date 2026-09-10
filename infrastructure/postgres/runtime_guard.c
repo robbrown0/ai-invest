@@ -53,7 +53,7 @@ __attribute__((constructor)) static void protect(void) {
     struct rlimit core = {0, 0};
     char cpu[80], *cursor = cpu;
     uid_t uid = getuid();
-    if (uid != geteuid() || (uid != 26 && uid != 10001 && uid != 10002)) refuse();
+    if (uid != geteuid() || (uid != 26 && uid != 10001 && uid != 10002 && uid != 10003)) refuse();
     if (setrlimit(RLIMIT_CORE, &core) != 0 || prctl(PR_SET_DUMPABLE, 0) != 0
         || prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 || !ai_guard_status()) refuse();
     uint64_t memory = number("/sys/fs/cgroup/memory.max");

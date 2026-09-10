@@ -1,5 +1,7 @@
 # Run the V0 CLI — Disconnected Milestone
 
+Normal user onboarding is now [web-first](WEB_PAPER.md). This CLI remains administrative/disconnected tooling; historical statements below excluding all UI credential entry are superseded only for transient, direct-TLS PAPER provisioning/replacement in the execution-owned web interface. Stored-secret display remains forbidden.
+
 **Status:** Runnable disconnected flow; the requested real Alpaca PAPER end-to-end milestone is NOT complete. Gate 2 NOT PASSED. Both qualification authorization flags remain false.
 
 **Current database milestone:** The [PostgreSQL-backed CLI](POSTGRES_RUNTIME.md) is running on encrypted storage, with TDE/WAL validation, applied migrations, both-tenant RLS checks and application/database restart recovery. Real Alpaca PAPER remains unconnected. The SQLite instructions and earlier observations below are retained as the previous disconnected milestone, not current database-blocker status.

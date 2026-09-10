@@ -109,6 +109,7 @@ temp/
 !backend/migrations/0001_tenant_foundation.sql
 !backend/migrations/0002_runtime_ledger.sql
 !backend/migrations/0003_synthetic_broker.sql
+!backend/migrations/0004_web_paper.sql
 *.sql.gz
 *.dump
 *.backup

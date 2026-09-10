@@ -3,6 +3,13 @@
 !backend/**
 !scripts/
 !scripts/postgres_v0.py
+!scripts/web_v0.py
+!execution/
+!execution/**
+!frontend/
+!frontend/**
+!infrastructure/web/
+!infrastructure/web/Dockerfile
 !infrastructure/
 !infrastructure/application/
 !infrastructure/application/Dockerfile

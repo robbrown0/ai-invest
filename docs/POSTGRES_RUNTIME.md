@@ -1,5 +1,7 @@
 # Running PostgreSQL V0
 
+Current direction update: [web-first PAPER onboarding](WEB_PAPER.md) supersedes the historical CLI credential-entry discussion below. Migration0004 and its dedicated peer role are now applied; the web listener still awaits trusted TLS/device setup. Prior deployment evidence remains unchanged.
+
 Status: deployed, private/local only. PostgreSQL-backed **disconnected synthetic** trading works. Actual Alpaca PAPER connectivity is not yet delivered. Gate 2 NOT PASSED; `secret_entry_authorized=false` and `runtime_crash_suppression_qualified=false` remain unchanged. The owner's narrow approval authorized the development local TDE keys, not a general secret-bootstrap or LIVE gate.
 
 ## Use the application now
