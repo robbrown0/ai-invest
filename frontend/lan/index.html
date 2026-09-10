@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ai-invest · LAN workspace</title><link rel="stylesheet" href="/app.css"><script src="/app.js" defer></script></head>
+<body><header><h1>ai-invest <span>PAPER ONLY</span></h1><p>Private LAN development workspace</p></header>
+<main><p class="warning">HTTP mode: accessible to your LAN, not an authenticated private account session. Do not enter passwords, keys, account information or other private data here.</p>
+<p id="notice" role="status" aria-live="polite">Loading system status…</p>
+<section><h2>Dashboard &amp; system status</h2><dl id="status"></dl><button id="refresh" type="button">Refresh status</button></section>
+<section><h2>Connect Alpaca PAPER</h2><p>Secure transport and authenticated access are required for credential entry. Connection setup is disabled over HTTP. No API key or secret fields are available.</p><button disabled>Connect Alpaca PAPER — secure transport required</button><p>Account, positions, orders and cash: not connected. No simulated numbers are presented as real account data.</p></section>
+<section><h2>Local AI research</h2><p>Generate a short research checklist for a public security. The local model has no current market feed, portfolio or brokerage access. Output may be wrong; verify every idea against current primary sources.</p>
+<label for="symbol">Public security</label><select id="symbol"><option>SPY</option><option>AAPL</option><option>MSFT</option><option>NVDA</option></select>
+<button id="research" type="button">Generate research checklist</button><p>One bounded local CPU job at a time; allow up to 90 seconds. No paid API or external prompt service.</p><article id="result" aria-live="polite"></article></section>
+<section><h2>Risk &amp; PAPER execution</h2><p>Blocked until authenticated approval, a safely connected account and fresh market evidence exist. Research cannot authorize an order.</p><button disabled>Approve PAPER proposal — unavailable</button><p>Gate 2: NOT PASSED. No LIVE or real-money capability.</p></section>
+</main><footer>HTTP sandbox · Public-symbol research only · No investment-return claims</footer></body></html>

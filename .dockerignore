@@ -4,6 +4,9 @@
 !scripts/
 !scripts/postgres_v0.py
 !scripts/web_v0.py
+!scripts/lan_v0.py
+!infrastructure/lan/
+!infrastructure/lan/Dockerfile
 !execution/
 !execution/**
 !frontend/

@@ -1,5 +1,7 @@
 # ai-invest
 
+**Current UI:** the [HTTP LAN workspace](docs/LAN_V0.md) is running with live database/system status and local-model public-symbol research. Alpaca credential entry and trading are disabled over HTTP. No TLS/certificate setup is required for this no-secret milestone.
+
 An experimental, multi-tenant, local-first AI-assisted investment research and paper-trading project. The internal name may change.
 
 The owner has authorized development toward a working PAPER-only V0. A [runnable disconnected CLI](docs/RUN_V0.md) now exercises durable intents, deterministic risk, simulated submission, reconciliation and process-restart recovery. **Actual Alpaca PAPER connectivity is not yet runnable; Gate 2 remains NOT PASSED.** The synthetic --io-test command is deferred. See [foundation context](docs/V0_IMPLEMENTATION.md) and the CLI guide for concrete remaining database/credential blockers. Draft ADRs are not silently marked accepted.

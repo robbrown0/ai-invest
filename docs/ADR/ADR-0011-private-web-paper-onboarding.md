@@ -33,4 +33,6 @@ One-time trusted device/TLS enrollment and a root-owned origin/fingerprint polic
 
 ## Consequences
 
+Subsequent owner direction defers TLS/certificate deployment. A separate [no-secret HTTP LAN shell](../LAN_V0.md) implements status and public-symbol research only, with disabled connection/approval controls. This does not remove authentication or TLS checks from the credential gateway; sensitive workflows remain unavailable until an approved protected path exists.
+
 Web onboarding and account display can precede risk/order UI implementation. Outside-user authentication/recovery, external secrets management, failed-auth auditing and actual execution controls remain future work. [Implementation and test limits](../WEB_PAPER.md) must stay distinct from a real connected deployment.

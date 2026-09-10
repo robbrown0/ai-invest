@@ -1,5 +1,7 @@
 # Web-first PAPER onboarding
 
+**Current owner direction:** [the HTTP LAN shell](LAN_V0.md) is now deployed. TLS and certificate automation are deferred. The HTTPS onboarding implementation below remains preserved/stopped; no credential entry, stored financial view or approval is exposed in the HTTP shell.
+
 Status: implemented and isolated-test validated; **not yet LAN-deployed or connected to Alpaca**. The owner changed normal onboarding to browser-first. The CLI remains a disconnected simulator/administrative tool, not the credential-entry experience. Gate 2 remains NOT PASSED; both qualification authorization flags remain false. The deferred synthetic `--io-test` candidate is unchanged.
 
 ## User workflow

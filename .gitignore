@@ -110,6 +110,7 @@ temp/
 !backend/migrations/0002_runtime_ledger.sql
 !backend/migrations/0003_synthetic_broker.sql
 !backend/migrations/0004_web_paper.sql
+!backend/migrations/0005_lan_status.sql
 *.sql.gz
 *.dump
 *.backup
@@ -128,6 +129,7 @@ outputs/
 notebooks/.ipynb_checkpoints/
 
 # AI/ML models, weights, and caches
+infrastructure/lan/deployment.env
 models/
 model-cache/
 checkpoints/
