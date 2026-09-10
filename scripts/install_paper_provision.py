@@ -184,6 +184,7 @@ DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),
  (LIB/'operator_preflight.py','e3f5e14813b66a216b84c23e9261d3c888a5eacd41a626a8250eba11d435a91c'),
 )
+FAILURE_DETAILS=frozenset(('manifest_reconciliation','rollback_generation_validation','predecessor_match','predecessor_backup_slot'))
 FAILURE_STAGES=frozenset(('precheck','old_artifact_validation','new_source_validation',
                           'candidate_policy_validation','backup_creation','replacement',
                           'aggregate_sudo_validation','new_artifact_validation','rollback'))
@@ -191,9 +192,9 @@ FAILURE_STAGES=frozenset(('precheck','old_artifact_validation','new_source_valid
 
 class StageFailure(RuntimeError):
     """Sanitized installer failure; never carries host/exception details."""
-    def __init__(self,stage):
+    def __init__(self,stage,detail=None):
         if stage not in FAILURE_STAGES: stage='precheck'
-        self.stage=stage
+        self.stage=stage; self.detail=detail if detail in FAILURE_DETAILS else None
         super().__init__(stage)
 
 
@@ -439,8 +440,10 @@ def upgrade():
         return 'already_current_not_provisioned'
     def inspect_old():
         nonlocal old,backups,old_version,old_marker,marker_backup
-        reconcile_predecessor_manifest()
-        validate_existing_backups()
+        try: reconcile_predecessor_manifest()
+        except BaseException: raise StageFailure('old_artifact_validation','manifest_reconciliation')
+        try: validate_existing_backups()
+        except BaseException: raise StageFailure('old_artifact_validation','rollback_generation_validation')
         matches=[]
         for version_name,version_files in APPROVED_OLD_VERSIONS:
             candidate_old=[];candidate_backups=[]
@@ -458,7 +461,8 @@ def upgrade():
                 matches.append((version_name,candidate_old,candidate_backups,marker_present,candidate_marker_backup))
             except BaseException:
                 continue
-        require(len(matches)==1)
+        if len(matches)!=1:
+            raise StageFailure('old_artifact_validation','predecessor_match')
         old_version,old,backups,old_marker,marker_backup=matches[0]
     phase('old_artifact_validation',inspect_old)
     def inspect_new():
@@ -603,11 +607,14 @@ def install():
 
 
 def main():
+    failure_detail=None
     try: state=install();status=0
-    except StageFailure as caught: failure_stage=caught.stage;state='refused_or_incomplete';status=1
+    except StageFailure as caught: failure_stage=caught.stage;failure_detail=caught.detail;state='refused_or_incomplete';status=1
     except BaseException: failure_stage='precheck';state='refused_or_incomplete';status=1
     result={'mode':'paper-provision-install','state':state,'credentials_entered':False,'connected':False}
-    if status: result['failure_stage']=failure_stage
+    if status:
+        result['failure_stage']=failure_stage
+        if failure_detail in FAILURE_DETAILS: result['failure_detail']=failure_detail
     print(json.dumps(result,separators=(',',':')))
     return status
 
