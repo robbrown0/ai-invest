@@ -395,6 +395,40 @@ def replacement_aggregate(candidate):
     return ''.join(output).encode('utf-8')
 
 
+def reconcile_predecessor_manifest():
+    marker=manifest_path()
+    if not marker.exists() and not marker.is_symlink():
+        return None
+    matches=[]
+    for name,version_files in APPROVED_OLD_VERSIONS:
+        try:
+            for target,mode,digest in version_files:
+                artifact(target,digest,mode)
+                require(hashlib.sha256(target.read_bytes()).hexdigest()==digest)
+            matches.append((name,version_files))
+        except BaseException:
+            continue
+    require(len(matches)==1)
+    installed_name,installed_files=matches[0]
+    if marker.is_symlink(): raise RuntimeError('manifest_symlink')
+    if marker.exists():
+        info=marker.lstat()
+        require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_gid==0 and info.st_nlink==1 and stat.S_IMODE(info.st_mode)==MANIFEST_MODE and info.st_size<=65536)
+        known=False
+        for name,version_files in APPROVED_OLD_VERSIONS:
+            try:
+                validate_manifest(name,version_files); known=True; break
+            except BaseException:
+                continue
+        require(known)
+    desired=manifest_bytes(installed_name,installed_files)
+    if not marker.exists() or hashlib.sha256(marker.read_bytes()).hexdigest()!=hashlib.sha256(desired).hexdigest():
+        if marker.exists(): marker.unlink(); sync_parent(marker)
+        write(marker,desired,MANIFEST_MODE)
+    validate_manifest(installed_name,installed_files)
+    return installed_name
+
+
 def upgrade():
     phase('precheck',lambda: (require(os.getuid()==0 and sys.argv[1:]==['--upgrade']),
                               validate(),
@@ -405,6 +439,7 @@ def upgrade():
         return 'already_current_not_provisioned'
     def inspect_old():
         nonlocal old,backups,old_version,old_marker,marker_backup
+        reconcile_predecessor_manifest()
         validate_existing_backups()
         matches=[]
         for version_name,version_files in APPROVED_OLD_VERSIONS:
