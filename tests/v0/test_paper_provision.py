@@ -113,6 +113,9 @@ class Boundaries(unittest.TestCase):
     def test_ssh_environment_keeps_path_incidental_and_rejects_term_modes(self):
         safe=dict(P.CLEAN,PATH='/usr/local/bin',TERM='xterm-256color',SUDO_GID='1000')
         with patch.dict(P.os.environ,safe,clear=True): P.require_ssh_environment()
+        with patch.dict(P.os.environ,dict(safe,SSH_AUTH_SOCK='/run/user/1000/agent.sock'),clear=True): P.require_ssh_environment()
+        with patch.dict(P.os.environ,dict(safe,SSH_AUTH_SOCK='/tmp/attacker.sock'),clear=True):
+            with self.assertRaises(P.Refused): P.require_ssh_environment()
         device=os.makedev(136,7); character=SimpleNamespace(st_mode=stat.S_IFCHR,st_rdev=device)
         valid={'TERM':'xterm-256color','SSH_TTY':'/dev/pts/7'}
         fixture=patch.object(P.os,'isatty',return_value=True),patch.object(P.os,'ttyname',return_value='/dev/pts/7'),\

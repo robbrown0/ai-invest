@@ -96,7 +96,7 @@ def require_ssh_terminal(environment):
 def require_ssh_environment():
     allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
                         'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
-                        'SSH_TTY','SSH_CONNECTION','SSH_CLIENT'}
+                        'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK'}
     require(set(os.environ)<=allowed)
     for key in ('LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','PYTHONSTARTUP','BASH_ENV'):
         require(key not in os.environ)
@@ -106,6 +106,11 @@ def require_ssh_environment():
         require(key not in os.environ or os.environ[key]==value)
     require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
     require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
+    # SSH agent forwarding is common for administrators. It is never used by
+    # this program and is removed by the fixed CLEAN environment before any
+    # privileged child work; reject malformed values rather than trusting it.
+    agent=os.environ.get('SSH_AUTH_SOCK')
+    if agent is not None: require(agent.startswith('/tmp/ssh-') or agent.startswith('/run/user/1000/'))
 
 
 def _session_properties(session):
