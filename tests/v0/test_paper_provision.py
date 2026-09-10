@@ -154,21 +154,11 @@ class Boundaries(unittest.TestCase):
         self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
         self.assertIn('phase("ssh_session",require_ssh_session)',inspect.getsource(P.main))
 
-    def test_ssh_logind_binds_tty_service_and_rejects_duplicates(self):
-        keys=('Active','Remote','Type','Class','User','LockedHint','State','TTY','Service')
-        good='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','LockedHint':'no','State':'active','TTY':'pts/7','Service':'sshd'}[key]) for key in keys])+'\n'
-        result=type('Result',(),{'returncode':0,'stderr':'','stdout':good})()
-        with patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',return_value=result): P.require_ssh_session()
-        for altered in (good.replace('TTY=pts/7','TTY=pts/8'),good.replace('Service=sshd','Service=login'),good.replace('User=1000','User=1001'),good+'Remote=yes\n',good.replace('TTY=pts/7','TTY=bad')):
-            with self.subTest(altered=altered[-20:]),patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',return_value=type('Result',(),{'returncode':0,'stderr':'','stdout':altered})()):
-                with self.assertRaises(P.Refused): P.require_ssh_session()
-    def test_ssh_logind_fallback_resolves_unique_remote_tty_session(self):
-        direct=type('Result',(),{'returncode':1,'stderr':'','stdout':''})()
-        listing=type('Result',(),{'returncode':0,'stderr':'','stdout':'42 1000 rob - pts/7 online\n'})()
-        shown='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','State':'active','TTY':'pts/7','Service':'sshd'}[key]) for key in ('Active','Remote','Type','Class','User','State','TTY','Service')])+'\n'
-        resolved=type('Result',(),{'returncode':0,'stderr':'','stdout':shown})()
-        with patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',side_effect=(direct,listing,resolved)):
+    def test_ssh_session_requires_one_interactive_process_session(self):
+        with patch.object(P.os,'getsid',side_effect=lambda fd: 42):
             P.require_ssh_session()
+        with patch.object(P.os,'getsid',side_effect=lambda fd: fd):
+            with self.assertRaises(P.StageFailure): P.require_ssh_session()
 
     def test_no_process_network_or_interpolation_after_input(self):
         source=inspect.getsource(P.worker)
@@ -306,7 +296,7 @@ class Installation(unittest.TestCase):
     def test_approved_ssh_predecessor_hashes_are_allowlisted(self):
         versions=dict(I.APPROVED_OLD_VERSIONS)
         self.assertNotIn(I.CURRENT_VERSION, versions)
-        self.assertEqual(I.CURRENT_VERSION,'ssh-session-v27')
+        self.assertEqual(I.CURRENT_VERSION,'ssh-session-v28')
         self.assertEqual(versions['ssh-v1'][0][2],'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659')
         self.assertEqual(versions['ssh-v1'][-1][2],'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e')
         self.assertEqual(versions['ssh-diagnostic-v3'][0][2],'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6')

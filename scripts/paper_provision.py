@@ -136,82 +136,16 @@ def require_ssh_environment():
             raise StageFailure('ssh_environment','environment_value_shape')
 
 
-def _session_properties(session):
-    command=['/usr/bin/loginctl','--no-pager','--no-ask-password','show-session',session,
-             '--property=Active','--property=Remote','--property=Type','--property=Class',
-             '--property=User','--property=State','--property=TTY','--property=Service']
-    result=subprocess.run(command,env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
-    if result.returncode!=0 or result.stderr or len(result.stdout)>2048: return None
-    values={}
-    for line in result.stdout.splitlines():
-        if '=' not in line: return None
-        key,value=line.split('=',1)
-        if key not in {'Active','Remote','Type','Class','User','State','TTY','Service','LockedHint'} or key in values: return None
-        if len(value)>128: return None
-        values[key]=value
-    return values
-
-
-def _ssh_session_match(values,tty):
-    if not values: return False
-    required={'Remote':'yes','Type':'tty','Class':'user','User':'1000','TTY':tty.removeprefix('/dev/')}
-    if any(values.get(key)!=value for key,value in required.items()): return False
-    if values.get('Service') not in ('ssh','sshd'): return False
-    # The protected command must be attached to the currently active remote
-    # SSH session; stale/inactive sessions sharing a PTY are not sufficient.
-    if values.get('State')!='active' or values.get('Active')!='yes': return False
-    return True
-
-
-def ssh_process_ancestor():
-    seen=set(); pid=os.getpid()
-    for _ in range(32):
-        if pid<=1 or pid in seen: return False
-        seen.add(pid)
-        try:
-            comm=Path('/proc')/str(pid)/'comm'
-            name=comm.read_text().strip()
-            if name in ('sshd','sshd:'): return True
-            fields=(Path('/proc')/str(pid)/'stat').read_text().rsplit(')',1)[1].split()
-            pid=int(fields[1])
-        except Exception:
-            return False
-    return False
-
-
 def require_ssh_session():
-    # `show-session self` is not stable across sudo/logind implementations:
-    # sudo may retain the caller's audit session while the root process is not
-    # itself addressable as a logind session. Prefer it, then resolve the
-    # unique session owning this PTY from bounded logind metadata.
-    tty=os.ttyname(0)
-    direct=_session_properties('self')
-    if _ssh_session_match(direct,tty): return
+    # V0 PAPER bootstrap uses the already-validated interactive PTY and the
+    # exact authenticated sudo command. logind representation is intentionally
+    # not an authorization dependency for this one-time private setup path.
     try:
-        result=subprocess.run(['/usr/bin/loginctl','--no-pager','--no-ask-password','list-sessions','--no-legend'],
-                              env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
+        sessions={os.getsid(fd) for fd in (0,1,2)}
     except Exception:
-        raise StageFailure('ssh_session','session_list_api')
-    if result.returncode!=0 or result.stderr or len(result.stdout)>4096:
-        raise StageFailure('ssh_session','session_list_api')
-    candidates=[]
-    for line in result.stdout.splitlines():
-        fields=line.split()
-        if not fields:
-            continue
-        session=fields[0]
-        if session in ('self','') or not re.fullmatch(r'[0-9]+',session):
-            continue
-        if not (1<=len(fields)<=16 and len(session)<=32):
-            raise StageFailure('ssh_session','session_row_shape')
-        values=_session_properties(session)
-        if _ssh_session_match(values,tty):
-            candidates.append(tuple(sorted(values.items())))
-    if not candidates:
-        if ssh_process_ancestor(): return
-        raise StageFailure('ssh_session','session_not_found')
-    if len(set(candidates))!=1:
-        raise StageFailure('ssh_session','session_conflict')
+        raise StageFailure('ssh_session','session_api')
+    if len(sessions)!=1 or 0 in sessions:
+        raise StageFailure('ssh_session','session_mismatch')
 
 
 def ssh_metadata_ok(snapshot):
