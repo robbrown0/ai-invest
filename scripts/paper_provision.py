@@ -32,7 +32,7 @@ DEPENDENCIES={
 class Refused(Exception): pass
 FAILURE_STAGES=frozenset(('entry_validation','dependency_validation','ssh_environment','ssh_terminal','ssh_session','host_binding','sudo_identity','scope_launch','worker_environment','worker_terminal','worker_host_binding','runtime_protection','storage_open','input_ready','precredential'))
 class StageFailure(Refused):
-    def __init__(self,stage): self.stage=stage if stage in FAILURE_STAGES else 'precredential'
+    def __init__(self,stage,detail=None): self.stage=stage if stage in FAILURE_STAGES else 'precredential'; self.detail=detail
 
 def phase(stage,operation):
     try: return operation()
@@ -93,38 +93,45 @@ def require_ssh_terminal(environment):
     require(terminal==os.fstat(0).st_rdev and os.tcgetpgrp(0)==os.getpgrp())
 
 
+ENV_DETAILS=('environment_keyset','environment_dangerous','environment_locale','environment_identity','environment_agent')
 def require_ssh_environment():
-    allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
-                        'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
-                        'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE','LANGUAGE'}
-    unknown=set(os.environ)-allowed
-    for key in unknown:
-        require(re.fullmatch(r'LC_[A-Z0-9_]+',key) is not None)
-        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
-    require(not (unknown-set(key for key in unknown if key.startswith('LC_'))))
-    for key in ('LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','PYTHONSTARTUP','BASH_ENV'):
-        require(key not in os.environ)
-    for key in ('LANG','LC_ALL','TERM'):
-        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
-    for key,value in {'HOME':'/root','USER':'root','LOGNAME':'root','MAIL':'/var/mail/root'}.items():
-        require(key not in os.environ or os.environ[key]==value)
-    require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
-    require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
-    # SSH agent forwarding is common for administrators. It is never used by
-    # this program and is removed by the fixed CLEAN environment before any
-    # privileged child work; reject malformed values rather than trusting it.
-    agent=os.environ.get('SSH_AUTH_SOCK')
-    if agent is not None: require(agent.startswith('/tmp/ssh-') or agent.startswith('/run/user/1000/'))
-    agent_pid=os.environ.get('SSH_AGENT_PID')
-    if agent_pid is not None: require(agent_pid.isdigit() and len(agent_pid)<=10)
-    runtime_dir=os.environ.get('XDG_RUNTIME_DIR')
-    if runtime_dir is not None: require(runtime_dir=='/run/user/1000')
-    session_id=os.environ.get('XDG_SESSION_ID')
-    if session_id is not None: require(len(session_id)<=32 and re.fullmatch(r'[A-Za-z0-9_-]+',session_id))
-    language=os.environ.get('LANGUAGE')
-    if language is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-:]{0,64}',language) is not None)
-    ctype=os.environ.get('LC_CTYPE')
-    if ctype is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',ctype) is not None)
+    detail='environment_keyset'
+    try:
+        allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
+                            'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
+                            'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE','LANGUAGE'}
+        unknown=set(os.environ)-allowed
+        detail='environment_keyset'
+        for key in unknown:
+            require(re.fullmatch(r'LC_[A-Z0-9_]+',key) is not None)
+            require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
+        require(not (unknown-set(key for key in unknown if key.startswith('LC_'))))
+        detail='environment_dangerous'
+        for key in ('LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','PYTHONSTARTUP','BASH_ENV'):
+            require(key not in os.environ)
+        detail='environment_locale'
+        for key in ('LANG','LC_ALL','TERM'):
+            require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
+        language=os.environ.get('LANGUAGE')
+        if language is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-:]{0,64}',language) is not None)
+        ctype=os.environ.get('LC_CTYPE')
+        if ctype is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',ctype) is not None)
+        detail='environment_identity'
+        for key,value in {'HOME':'/root','USER':'root','LOGNAME':'root','MAIL':'/var/mail/root'}.items():
+            require(key not in os.environ or os.environ[key]==value)
+        require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
+        require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
+        detail='environment_agent'
+        agent=os.environ.get('SSH_AUTH_SOCK')
+        if agent is not None: require(agent.startswith('/tmp/ssh-') or agent.startswith('/run/user/1000/'))
+        agent_pid=os.environ.get('SSH_AGENT_PID')
+        if agent_pid is not None: require(agent_pid.isdigit() and len(agent_pid)<=10)
+        runtime_dir=os.environ.get('XDG_RUNTIME_DIR')
+        if runtime_dir is not None: require(runtime_dir=='/run/user/1000')
+        session_id=os.environ.get('XDG_SESSION_ID')
+        if session_id is not None: require(len(session_id)<=32 and re.fullmatch(r'[A-Za-z0-9_-]+',session_id))
+    except Refused:
+        raise StageFailure('ssh_environment',detail)
 
 
 def _session_properties(session):
@@ -308,6 +315,7 @@ def worker(console,metadata,terminal,storage,mode):
 
 def main():
     stage="entry_validation"
+    detail=None
     try:
         phase("entry_validation",lambda: require(os.getuid()==0 and Path(__file__).absolute()==INSTALLED and sys.argv[1:] in ([],["--ssh"],["--worker"],["--worker","--ssh"])))
         phase("entry_validation",lambda: checked(INSTALLED))
@@ -327,10 +335,12 @@ def main():
         phase("scope_launch",lambda: (resource.setrlimit(resource.RLIMIT_CORE,(0,0)),os.umask(0o077),subprocess.run(scope_command(mode),env=CLEAN,close_fds=True,timeout=210,check=False).returncode)[-1])
         return 0
     except StageFailure as failure:
-        stage=failure.stage
+        stage=failure.stage; detail=failure.detail
     except BaseException:
         pass
-    os.write(1,("\r\n{\"mode\":\"paper-credential-stage\",\"staged\":\"UNKNOWN\",\"connected\":false,\"error\":\"refused_or_incomplete\",\"failure_stage\":\""+stage+"\",\"gate2_passed\":false,\"secret_entry_authorized\":false,\"runtime_crash_suppression_qualified\":false}\n").encode())
+    result={"mode":"paper-credential-stage","staged":"UNKNOWN","connected":False,"error":"refused_or_incomplete","failure_stage":stage,"gate2_passed":False,"secret_entry_authorized":False,"runtime_crash_suppression_qualified":False}
+    if detail in ENV_DETAILS: result["failure_detail"]=detail
+    os.write(1,("\r\n"+json.dumps(result,separators=(",",":"))+"\n").encode())
     return 1
 
 
