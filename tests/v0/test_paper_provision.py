@@ -241,6 +241,7 @@ class Installation(unittest.TestCase):
             old_digest=hashlib.sha256(old).hexdigest();new_digest=hashlib.sha256(new).hexdigest()
             files=tuple((source, target, 0o600, new_digest) for source,target in zip(sources,targets))
             old_files=tuple((target,0o600,old_digest) for target in targets)
+            approved=(("fixture",old_files),)
             for source,target,_,_ in files:
                 (root/source).write_bytes(new);(root/source).chmod(0o600);target.write_bytes(old);target.chmod(0o600)
             def fake_artifact(path,digest,mode):
@@ -250,7 +251,7 @@ class Installation(unittest.TestCase):
             def fake_replace(path,data,mode):
                 temp=path.parent/('.tmp-'+path.name);temp.write_bytes(data);temp.chmod(mode);os.replace(temp,path)
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
-                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'DEPENDENCIES',()),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),\
                 patch.object(I,'parents'),\
                 patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
                 patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
@@ -260,11 +261,16 @@ class Installation(unittest.TestCase):
             backups=[I.backup_path(path) for path in targets]
             self.assertTrue(all(path.exists() and path.read_bytes()==old for path in backups))
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
-                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
                 patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
                 patch.object(I.sys,'argv',['installer','--rollback-upgrade']):
                     self.assertEqual(I.rollback_upgrade(),'rolled_back_previous_version')
             self.assertTrue(all(path.read_bytes()==old for path in targets));self.assertTrue(all(not path.exists() for path in backups))
+    def test_approved_ssh_predecessor_hashes_are_allowlisted(self):
+        versions=dict(I.APPROVED_OLD_VERSIONS)
+        self.assertEqual(versions['ssh-v1'][0][2],'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659')
+        self.assertEqual(versions['ssh-v1'][-1][2],'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e')
+
     def test_upgrade_reports_bounded_failure_stage(self):
         output=io.StringIO()
         with patch.object(I,"install",side_effect=I.StageFailure("backup_creation")),contextlib.redirect_stdout(output):
