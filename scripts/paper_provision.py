@@ -185,7 +185,7 @@ def require_ssh_session():
         session=fields[0]
         if session in ('self','') or not re.fullmatch(r'[0-9]+',session):
             continue
-        if not (2<=len(fields)<=6 and len(session)<=32):
+        if not (1<=len(fields)<=16 and len(session)<=32):
             raise StageFailure('ssh_session','session_row_shape')
         values=_session_properties(session)
         if _ssh_session_match(values,tty): candidates.append(session)
