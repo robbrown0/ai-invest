@@ -178,7 +178,7 @@ SESSION_V25_OLD_FILES=(
  (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
 )
 APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES),('ssh-session-v4',SESSION_OLD_FILES),('ssh-session-v5',SESSION_V5_OLD_FILES),('ssh-session-v6',SESSION_V6_OLD_FILES),('ssh-session-v7',SESSION_V7_OLD_FILES),('ssh-session-v8',SESSION_V8_OLD_FILES),('ssh-session-v9',SESSION_V9_OLD_FILES),('ssh-session-v10',SESSION_V10_OLD_FILES),('ssh-session-v11',SESSION_V11_OLD_FILES),('ssh-session-v12',SESSION_V12_OLD_FILES),('ssh-session-v13',SESSION_V13_OLD_FILES),('ssh-session-v14',SESSION_V14_OLD_FILES),('ssh-session-v15',SESSION_V15_OLD_FILES),('ssh-session-v16',SESSION_V16_OLD_FILES),('ssh-session-v17',SESSION_V17_OLD_FILES),('ssh-session-v18',SESSION_V18_OLD_FILES),('ssh-session-v19',SESSION_V19_OLD_FILES),('ssh-session-v20',SESSION_V20_OLD_FILES),('ssh-session-v21',SESSION_V21_OLD_FILES),('ssh-session-v22',SESSION_V22_OLD_FILES),('ssh-session-v23',SESSION_V23_OLD_FILES),('ssh-session-v24',SESSION_V24_OLD_FILES),('ssh-session-v25',SESSION_V25_OLD_FILES))
-CURRENT_VERSION='ssh-session-v24'
+CURRENT_VERSION='ssh-session-v26'
 MANIFEST_MODE=0o400
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),
