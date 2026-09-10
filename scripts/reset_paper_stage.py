@@ -6,7 +6,7 @@ PENDING=BASE/"initial-paper.json"
 def main():
     if os.geteuid()!=0 or BASE.is_symlink() or not BASE.is_dir(): return 1
     s=BASE.stat()
-    if s.st_uid!=10003 or stat.S_IMODE(s.st_mode)!=0o700 or s.st_nlink!=1: return 1
+    if s.st_uid!=10003 or stat.S_IMODE(s.st_mode)!=0o700 or s.st_nlink<2: return 1
     entries=list(BASE.iterdir())
     if len(entries)!=1 or entries[0].name!=PENDING.name or entries[0].is_symlink(): return 1
     f=PENDING.lstat()
