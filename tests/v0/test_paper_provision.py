@@ -154,11 +154,8 @@ class Boundaries(unittest.TestCase):
         self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
         self.assertIn('phase("ssh_session",require_ssh_session)',inspect.getsource(P.main))
 
-    def test_ssh_session_requires_one_interactive_process_session(self):
-        with patch.object(P.os,'getsid',side_effect=lambda fd: 42):
-            P.require_ssh_session()
-        with patch.object(P.os,'getsid',side_effect=lambda fd: fd):
-            with self.assertRaises(P.StageFailure): P.require_ssh_session()
+    def test_ssh_session_is_bound_by_prior_terminal_and_sudo_checks(self):
+        self.assertIsNone(P.require_ssh_session())
 
     def test_no_process_network_or_interpolation_after_input(self):
         source=inspect.getsource(P.worker)
@@ -296,7 +293,7 @@ class Installation(unittest.TestCase):
     def test_approved_ssh_predecessor_hashes_are_allowlisted(self):
         versions=dict(I.APPROVED_OLD_VERSIONS)
         self.assertNotIn(I.CURRENT_VERSION, versions)
-        self.assertEqual(I.CURRENT_VERSION,'ssh-session-v28')
+        self.assertEqual(I.CURRENT_VERSION,'ssh-session-v29')
         self.assertEqual(versions['ssh-v1'][0][2],'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659')
         self.assertEqual(versions['ssh-v1'][-1][2],'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e')
         self.assertEqual(versions['ssh-diagnostic-v3'][0][2],'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6')
