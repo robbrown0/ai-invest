@@ -96,7 +96,7 @@ def require_ssh_terminal(environment):
 def require_ssh_environment():
     allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
                         'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
-                        'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE'}
+                        'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE','LANGUAGE'}
     unknown=set(os.environ)-allowed
     for key in unknown:
         require(re.fullmatch(r'LC_[A-Z0-9_]+',key) is not None)
@@ -121,6 +121,8 @@ def require_ssh_environment():
     if runtime_dir is not None: require(runtime_dir=='/run/user/1000')
     session_id=os.environ.get('XDG_SESSION_ID')
     if session_id is not None: require(len(session_id)<=32 and re.fullmatch(r'[A-Za-z0-9_-]+',session_id))
+    language=os.environ.get('LANGUAGE')
+    if language is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-:]{0,64}',language) is not None)
     ctype=os.environ.get('LC_CTYPE')
     if ctype is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',ctype) is not None)
 
