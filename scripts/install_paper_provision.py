@@ -19,6 +19,12 @@ FILES=(
  ('scripts/setup_postgres_dirs.py',LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e'),
 )
+OLD_FILES=(
+ (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'82f91e8f370442a6aeeedff3552c7c295516c5eb2760a1875b6c3fa8c8887d79'),
+ (LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
+ (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
+ (POLICY,0o440,'4e5eb0c4132a9d6d01900e52450661a354fec60cf01b4d5acdb243477e2d2ee5'),
+)
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),
  (LIB/'operator_preflight.py','e3f5e14813b66a216b84c23e9261d3c888a5eacd41a626a8250eba11d435a91c'),
@@ -48,6 +54,80 @@ def read(path,digest,source=False):
     finally: os.close(fd)
 
 
+def artifact(path,digest,mode):
+    data=read(path,digest)
+    info=path.lstat()
+    require(stat.S_IMODE(info.st_mode)==mode and info.st_uid==0 and info.st_gid==0 and info.st_nlink==1)
+    return data
+
+
+def backup_path(path):
+    return path.parent / ('.'+path.name+'.paper-provision.previous')
+
+
+def replace_file(path,data,mode):
+    fd,name=tempfile.mkstemp(prefix='paper-provision.',dir=path.parent)
+    temporary=Path(name)
+    try:
+        os.fchmod(fd,mode);os.fchown(fd,0,0)
+        require(os.write(fd,data)==len(data));os.fsync(fd)
+    finally: os.close(fd)
+    try:
+        os.replace(temporary,path);sync_parent(path)
+    finally:
+        if temporary.exists(): temporary.unlink()
+
+
+def upgrade():
+    require(os.getuid()==0 and sys.argv[1:]==['--upgrade'])
+    validate()
+    for path,digest in DEPENDENCIES: read(path,digest)
+    require(stat.S_IMODE(LIB.stat().st_mode)==0o700)
+    old=[];new=[];backups=[]
+    for (source,target,mode,digest),(old_target,old_mode,old_digest) in zip(FILES,OLD_FILES):
+        require(target==old_target and mode==old_mode and not target.is_symlink())
+        old.append(artifact(target,old_digest,old_mode))
+        backup=backup_path(target);require(not backup.exists() and not backup.is_symlink())
+        data=read(ROOT/source,digest,True);new.append((data,mode,digest));backups.append(backup)
+    with tempfile.TemporaryDirectory(prefix='paper-provision-upgrade-',dir=LIB) as directory:
+        work=Path(directory);candidate=work/'policy';write(candidate,new[-1][0],0o440);validate(candidate)
+        aggregate=work/'aggregate';write(aggregate,('@include /etc/sudoers\n@include '+str(candidate)+'\n').encode(),0o600);validate(aggregate)
+    made=[]
+    try:
+        for (source,target,mode,digest),backup,data in zip(FILES,backups,new):
+            os.link(target,backup,follow_symlinks=False);sync_parent(backup)
+            require(backup.lstat().st_nlink==2);made.append(backup)
+        for (_,target,mode,digest), (data,_,_) in zip(FILES,new): replace_file(target,data,mode)
+        validate()
+        for (_,target,mode,digest), (data,_,_) in zip(FILES,new): artifact(target,digest,mode)
+    except BaseException:
+        for (source,target,mode,digest),backup,original in zip(FILES,backups,old):
+            if backup.exists() and target.exists(): replace_file(target,original,mode)
+        for backup in made:
+            if backup.exists(): backup.unlink();sync_parent(backup)
+        validate();raise
+    return 'upgraded_not_provisioned'
+
+
+def rollback_upgrade():
+    require(os.getuid()==0 and sys.argv[1:]==['--rollback-upgrade'])
+    validate();old=[];backups=[]
+    for target,mode,digest in OLD_FILES:
+        backup=backup_path(target)
+        require(backup.exists() and not backup.is_symlink())
+        artifact(target,next(item[3] for item in FILES if item[1]==target),mode)
+        old.append(artifact(backup,digest,mode));backups.append(backup)
+    try:
+        for (target,mode,digest),data in zip(OLD_FILES,old): replace_file(target,data,mode)
+        validate()
+        for target,mode,digest in OLD_FILES: artifact(target,digest,mode)
+    except BaseException:
+        # Leave rollback copies intact for a guarded human recovery; no deletion on ambiguity.
+        raise
+    for backup in backups: backup.unlink();sync_parent(backup)
+    return 'rolled_back_previous_version'
+
+
 def validate(path=None):
     command=['/usr/sbin/visudo','-c','-s']
     if path is not None: command+=['-f',str(path)]
@@ -69,8 +149,10 @@ def sync_parent(path):
 
 
 def install():
-    require(os.getuid()==0 and sys.argv[1:] in ([],['--rollback']))
+    require(os.getuid()==0 and sys.argv[1:] in ([],['--rollback'],['--upgrade'],['--rollback-upgrade']))
     os.umask(0o077)
+    if sys.argv[1:]==['--upgrade']: return upgrade()
+    if sys.argv[1:]==['--rollback-upgrade']: return rollback_upgrade()
     validate()
     if sys.argv[1:]==['--rollback']:
         # Remove only this exact policy. Public helper copies remain inert evidence.

@@ -212,3 +212,45 @@ class Installation(unittest.TestCase):
     def test_partial_install_failure_removes_only_created_artifacts(self): self.exercise()
     def test_partial_failure_preserves_replaced_artifact(self): self.exercise(replace=True)
     def test_candidate_aggregate_and_final_validation_success(self): self.exercise(fail=False)
+    def test_in_place_upgrade_verifies_old_artifacts_and_rolls_back(self):
+        with tempfile.TemporaryDirectory(prefix='ai-invest-upgrade-fixture-') as tmp:
+            root=Path(tmp);lib=root/'lib';lib.mkdir(mode=0o700);policy=root/'sudoers';
+            targets=(root/'command',lib/'terminal',lib/'storage',policy)
+            sources=('one','two','three','four');old=b'OLD-PUBLIC';new=b'NEW-PUBLIC'
+            old_digest=hashlib.sha256(old).hexdigest();new_digest=hashlib.sha256(new).hexdigest()
+            files=tuple((source, target, 0o600, new_digest) for source,target in zip(sources,targets))
+            old_files=tuple((target,0o600,old_digest) for target in targets)
+            for source,target,_,_ in files:
+                (root/source).write_bytes(new);(root/source).chmod(0o600);target.write_bytes(old);target.chmod(0o600)
+            def fake_artifact(path,digest,mode):
+                if digest==old_digest: return old
+                if digest==new_digest: return new
+                raise RuntimeError('wrong_digest')
+            def fake_replace(path,data,mode):
+                temp=path.parent/('.tmp-'+path.name);temp.write_bytes(data);temp.chmod(mode);os.replace(temp,path)
+            with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'DEPENDENCIES',()),\
+                patch.object(I,'parents'),\
+                patch.object(I,'validate'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
+                patch.object(I.sys,'argv',['installer','--upgrade']):
+                    self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
+            self.assertTrue(all(path.read_bytes()==new for path in targets))
+            backups=[I.backup_path(path) for path in targets]
+            self.assertTrue(all(path.exists() and path.read_bytes()==old for path in backups))
+            with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'validate'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
+                patch.object(I.sys,'argv',['installer','--rollback-upgrade']):
+                    self.assertEqual(I.rollback_upgrade(),'rolled_back_previous_version')
+            self.assertTrue(all(path.read_bytes()==old for path in targets));self.assertTrue(all(not path.exists() for path in backups))
+    def test_upgrade_refuses_changed_old_artifact_before_backup(self):
+        with tempfile.TemporaryDirectory(prefix='ai-invest-upgrade-refuse-') as tmp:
+            root=Path(tmp);lib=root/'lib';lib.mkdir(mode=0o700);target=root/'command';target.write_bytes(b'CHANGED')
+            files=(('one',target,0o600,hashlib.sha256(b'NEW').hexdigest()),)
+            old_files=((target,0o600,hashlib.sha256(b'OLD').hexdigest()),)
+            with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',target),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'DEPENDENCIES',()),\
+                patch.object(I,'validate'),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--upgrade']):
+                    with self.assertRaises(Exception): I.upgrade()
+            self.assertFalse(I.backup_path(target).exists())

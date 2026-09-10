@@ -97,11 +97,24 @@ Their recording, swap, crash/core retention and kernel behavior are outside the
 worker cgroup qualification and are not claimed as tested. No LUKS/OpenBao,
 LIVE, browser credential or real credential trial occurred.
 
-The SSH delta has 23 focused synthetic tests, including accepted bounded PATH
+The SSH delta has 25 focused synthetic tests, including accepted bounded PATH
 incidental state, loader/Python-variable rejection, PTY/foreground checks,
 session TTY/service/UID/duplicate-property rejection, exact command policy and
-physical-mode argument preservation. These are not evidence of a live SSH or
-Alpaca credential run.
+physical-mode argument preservation. The in-place-upgrade fixtures verify exact
+old-artifact refusal, atomic replacement, protected rollback copies and exact
+rollback restoration. These are not evidence of a live SSH or Alpaca credential
+run.
+
+### In-place upgrade disposition
+
+The fresh-install refusal was an installer workflow defect, not a reason to delete
+root-owned artifacts. The new `--upgrade` path requires the four exact previous
+helper/policy hashes, root ownership, expected modes, link count one and
+non-symlink state. It validates the new candidate and aggregate sudo policy before
+creating same-filesystem rollback hardlinks and atomically replacing only those
+four paths. `--rollback-upgrade` verifies the new state and rollback copies before
+restoring the previous bytes. Neither path opens, creates or reads the credential
+directory; ordinary sudo policy and the physical no-argument command remain.
 
 The credential-owning execution UID is a trusted writer to its own directory.
 Observed inode checks do not protect against fully compromised root, kernel or

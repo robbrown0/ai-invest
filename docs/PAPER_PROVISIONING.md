@@ -1,17 +1,20 @@
 # Initial protected Alpaca PAPER provisioning
 
-Status: prepared and independently reviewed, **not installed or run with credentials**.
+Status: SSH-capable in-place upgrade prepared and independently reviewed; it is
+**not installed or run with credentials**.
 The owner authorized this narrow PAPER bootstrap. Gate 2 and the historical
 qualification flags remain false; this is not LIVE authorization or a claim that
 the deferred recovery-output/--io-test qualification passed.
 
 ## One human procedure
 
-Keep an existing administrator SSH session open. Review the completion commit and
-[security review](reviews/PAPER_PROVISION_REVIEW.md). Do not run concurrent root
-configuration changes. The installer touches only four new, fixed public-code/
-policy files; it validates pinned dependencies, candidate and aggregate sudo
-syntax, refuses existing targets, and does not read or create credentials.
+Keep an existing administrator SSH session open. The original physical-console
+installer has already run, so do not use the fresh-install mode. Review the
+completion commit and [security review](reviews/PAPER_PROVISION_REVIEW.md). Do
+not run concurrent root configuration changes. The upgrade verifies the exact
+old helper/policy hashes, ownership, modes, link counts and non-symlink state;
+it stages the new fixed files, validates candidate and aggregate sudo syntax,
+keeps exact rollback copies, and does not read or create credentials.
 
 From your own SSH terminal:
 
@@ -20,13 +23,16 @@ cd /home/rob/ai-invest &&
 test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
-printf '%s\n' 'c16031f656ed804b2dbb8c9d7c8dc72b477a622c39045923b0c8956c356ba882  scripts/install_paper_provision.py' | sha256sum --check - &&
-sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py
+printf '%s\n' '32270cc0d2497e740d8d380f40bb11a5e0009d49001673e9a5e33a5cc77a5121  scripts/install_paper_provision.py' | sha256sum --check - &&
+sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --upgrade &&
+sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```
 
-Expected non-secret state: `installed_not_provisioned`. Any refusal means stop;
-do not remove files to make a repeated install succeed. No privileged change has
-been performed by the assistant. Ordinary sudo retains its existing PTY policy.
+Expected non-secret installer state: `upgraded_not_provisioned`, followed by the
+hidden SSH prompts. Any refusal means stop; do not delete files or retry with a
+different command. No privileged change has been performed by the assistant.
+Ordinary sudo retains its existing PTY policy, and the no-argument physical
+command remains available.
 
 At your normal SSH terminal, with a PTY allocated (`ssh -t`), use the existing
 approved local operator login. Do not use a GUI relay, tmux, screen, recording,
@@ -128,32 +134,32 @@ universal crash-retention qualification. Actual tools, independent recovery,
 credential rotation/revocation and future deployments require their own controls.
 The current prompt accepts no real encryption/unseal/recovery material.
 
-## Rollback
+## Upgrade rollback
 
 Before disabling the new grant, keep the administrator session open and recheck
 the installer hash above. Run from that human SSH terminal:
 
 ```bash
-sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --rollback
+sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --rollback-upgrade
 sudo /usr/sbin/visudo -c -s
 sudo /usr/bin/tty
 ```
 
-Rollback removes only this exact hashed sudoers file and validates aggregate
-policy before/after. It leaves public helper copies and all protected credentials,
-old policies and historical artifacts intact. The last ordinary sudo call over
-SSH must still observe a PTY; this checks ordinary sudo usability, not independent
-proof of use_pty (SSH already supplies a PTY). Unchanged command-scoped policy is
-the source evidence; ordinary sudo tty at a physical console would distinguish
-the use_pty behavior if needed. Rollback is **not broker-key revocation**; revoke
+Rollback verifies the current new artifacts and exact protected rollback copies,
+then atomically restores only the previous helper/policy files and validates
+aggregate policy. It never opens the credential directory. It leaves all
+credentials, unrelated policies and historical artifacts intact. The last
+ordinary sudo call over SSH must still observe a PTY; this checks ordinary sudo
+usability, not independent proof of use_pty (SSH already supplies a PTY).
+Rollback is **not broker-key revocation**; revoke
 compromised keys through Alpaca's own authenticated dashboard. Partial installation
 or unexpected file replacement requires inspection, not destructive automatic
 cleanup or a broadened grant.
 
 ## Evidence for this slice
 
-- 124 V0, 282 preserved qualification, 30 protected-container web and 11 LAN
-  regression tests passed (447 total). New tests use synthetic values only.
+- 129 V0, 282 preserved qualification, 30 protected-container web and 11 LAN
+  regression tests passed (452 total). New tests use synthetic values only.
 - Independent review reran 20 provisioning/installer and 30 web/activation tests;
   separate substitution fixtures and installed visudo grammar validation passed.
 - Real encrypted PostgreSQL accepted the corrected actor, rejected the old invalid
