@@ -77,6 +77,32 @@ reviewer runtime trial. No brokerage was contacted.
 
 ## Residual limits and human checkpoint
 
+### Approved SSH-only delta
+
+The owner-approved development exception adds exactly one digest-pinned
+`--ssh` invocation; the original no-argument physical-console command remains.
+The parent requires a foreground `/dev/pts/N` PTY, bounded sudo environment,
+operator UID/loginuid, intended host, and an active remote logind session whose
+TTY matches the controlling PTY and whose service is `ssh` or `sshd`. Duplicate
+or malformed session properties, GUI/tmux/screen indicators, dangerous loader or
+Python variables, unexpected arguments and PATH-dependent execution are refused.
+The worker receives only the fixed clean environment and explicit mode argument;
+all privileged executable paths remain absolute. The SSH branch uses a separate
+metadata predicate and does not relabel a PTY as a virtual console. Physical mode
+retains the original console and host checks.
+
+This exception explicitly expands trusted plaintext holders to the local SSH
+client, encrypted SSH transport, server sshd/session path and terminal buffers.
+Their recording, swap, crash/core retention and kernel behavior are outside the
+worker cgroup qualification and are not claimed as tested. No LUKS/OpenBao,
+LIVE, browser credential or real credential trial occurred.
+
+The SSH delta has 23 focused synthetic tests, including accepted bounded PATH
+incidental state, loader/Python-variable rejection, PTY/foreground checks,
+session TTY/service/UID/duplicate-property rejection, exact command policy and
+physical-mode argument preservation. These are not evidence of a live SSH or
+Alpaca credential run.
+
 The credential-owning execution UID is a trusted writer to its own directory.
 Observed inode checks do not protect against fully compromised root, kernel or
 that execution identity. The trusted physical console, keyboard/input stack and

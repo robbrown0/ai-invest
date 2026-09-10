@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import pwd
 import resource
+import re
 import signal
 import stat
 import subprocess
@@ -55,10 +56,73 @@ def load(name):
     return module
 
 
-def scope_command():
+def scope_command(mode):
+    worker_args=['--worker'] if mode=='--physical' else ['--worker','--ssh']
     return ['/usr/bin/systemd-run','--scope','--quiet','--unit=ai-invest-paper-provision',
         '--expand-environment=no','-p','MemoryMax=512M','-p','MemorySwapMax=0','-p','TasksMax=32','-p','CPUQuota=50%',
-        '/usr/bin/unshare','--mount','--propagation','private','/usr/bin/python3','-I','-B',str(INSTALLED),'--worker']
+        '/usr/bin/unshare','--mount','--propagation','private','/usr/bin/python3','-I','-B',str(INSTALLED),*worker_args]
+
+
+def require_ssh_terminal(environment):
+    names=[]
+    for fd in (0,1,2):
+        require(os.isatty(fd)); names.append(os.ttyname(fd))
+        info=os.fstat(fd); target=os.lstat(names[-1])
+        require(stat.S_ISCHR(target.st_mode) and info.st_rdev==target.st_rdev)
+        require(136 <= os.major(info.st_rdev) <= 143 and os.minor(info.st_rdev) >= 0)
+    require(len(set(names))==1 and (not environment.get('SSH_TTY') or names[0]==environment['SSH_TTY']))
+    require(names[0].startswith('/dev/pts/'))
+    if environment:
+        forbidden=('DISPLAY','WAYLAND_DISPLAY','TMUX','STY','SSH_ORIGINAL_COMMAND')
+        require(not any(environment.get(key) for key in forbidden))
+        term=environment.get('TERM','')
+        require(not term.startswith(('screen','tmux')))
+        if environment.get('SSH_CONNECTION'):
+            connection=environment['SSH_CONNECTION'].split()
+            require(len(connection)==4 and all(0<len(value)<=128 for value in connection))
+    terminal=int(Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[4])
+    require(terminal==os.fstat(0).st_rdev and os.tcgetpgrp(0)==os.getpgrp())
+
+
+def require_ssh_environment():
+    allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
+                        'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
+                        'SSH_TTY','SSH_CONNECTION','SSH_CLIENT'}
+    require(set(os.environ)<=allowed)
+    for key in ('LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','PYTHONSTARTUP','BASH_ENV'):
+        require(key not in os.environ)
+    for key in ('LANG','LC_ALL','TERM'):
+        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
+    for key,value in {'HOME':'/root','USER':'root','LOGNAME':'root','MAIL':'/var/mail/root'}.items():
+        require(key not in os.environ or os.environ[key]==value)
+    require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
+    require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
+
+
+def require_ssh_session():
+    expected={'Active':'yes','Remote':'yes','Type':'tty','Class':'user',
+              'User':'1000','LockedHint':'no','State':'active','TTY':os.ttyname(0).removeprefix('/dev/')}
+    command=['/usr/bin/loginctl','--no-pager','--no-ask-password','show-session','self']
+    command += ['--property='+key for key in (*expected,'Service')]
+    result=subprocess.run(command,env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
+    require(result.returncode==0 and not result.stderr and len(result.stdout)<=2048)
+    lines=result.stdout.splitlines()
+    require(len(lines)==len(expected)+1 and len({line.split('=',1)[0] for line in lines})==len(lines))
+    values=dict(line.split('=',1) for line in lines)
+    require(values.get('Service') in ('ssh','sshd'))
+    require({key:values.get(key) for key in expected}==expected)
+
+
+def ssh_metadata_ok(snapshot):
+    checks=('root_operator','cpu_limit_bounded','core_soft_zero','core_hard_zero',
+            'mount_namespace_differs_from_visible_pid1','pid_namespace_matches_visible_pid1',
+            'reviewed_apport_handler','reviewed_core_pattern')
+    memory=str(snapshot.get('memory_max',''));pids=str(snapshot.get('pids_max',''))
+    return (all(snapshot.get(key) is True for key in checks)
+            and memory.isdigit() and 0<int(memory)<=2*1024**3
+            and pids.isdigit() and 0<int(pids)<=64
+            and snapshot.get('memory_swap_max')=='0'
+            and snapshot.get('memory_swap_current')=='0')
 
 
 def protect(metadata):
@@ -147,12 +211,17 @@ def publish(directory,key,value):
         finally: os.close(fd)
 
 
-def worker(console,metadata,terminal,storage):
+def worker(console,metadata,terminal,storage,mode):
     require(dict(os.environ)==CLEAN)
-    console.require_console();console.require_host(scoped=True);console.require_console_session()
+    if mode=='--ssh':
+        require_ssh_terminal({});require_ssh_session()
+    else:
+        console.require_console();console.require_console_session()
+    console.require_host(scoped=True)
     require(Path('/proc/self/loginuid').read_text().strip()=='1000')
     group=protect(metadata)
-    require(metadata.operator_ok(metadata.operator_snapshot()))
+    snapshot=metadata.operator_snapshot()
+    require(ssh_metadata_ok(snapshot) if mode=='--ssh' else metadata.operator_ok(snapshot))
     directory=open_storage(storage)
     try:
         state={};deadline=time.monotonic()+180
@@ -160,7 +229,8 @@ def worker(console,metadata,terminal,storage):
             signal.alarm(180)
             try:
                 with terminal.quiet_terminal(0,state):
-                    terminal.display(1,b'PAPER-only protected setup. No SSH, recorder or real-money keys.\r\nType PAPER-CHECK to test hidden input, then Enter: ',deadline)
+                    prompt=b'PAPER-only protected setup. No recorder or real-money keys.\r\nType PAPER-CHECK to test hidden input, then Enter: '
+                    terminal.display(1,prompt,deadline)
                     require(terminal.read_disposable(0,deadline)==b'PAPER-CHECK')
                     runtime(metadata,group)
                     terminal.display(1,b'\r\nInput checked. Alpaca PAPER API key (hidden): ',deadline)
@@ -180,17 +250,24 @@ def worker(console,metadata,terminal,storage):
 
 def main():
     try:
-        require(os.getuid()==0 and Path(__file__).absolute()==INSTALLED and sys.argv[1:] in ([],['--worker']))
+        require(os.getuid()==0 and Path(__file__).absolute()==INSTALLED and sys.argv[1:] in ([],['--ssh'],['--worker'],['--worker','--ssh']))
         checked(INSTALLED)
         console,metadata,terminal,storage=(load(n) for n in ('console','metadata','terminal','storage'))
-        if sys.argv[1:]==['--worker']:
-            worker(console,metadata,terminal,storage);return 0
-        console.require_console();console.require_host();console.require_operator_environment();console.require_console_session()
+        if sys.argv[1:] in (['--worker'],['--worker','--ssh']):
+            worker(console,metadata,terminal,storage,'--ssh' if sys.argv[-1]=='--ssh' else '--physical');return 0
+        mode='--ssh' if sys.argv[1:]==['--ssh'] else '--physical'
+        if mode=='--ssh':
+            require_ssh_environment()
+            require_ssh_terminal(os.environ);require_ssh_session()
+        else:
+            console.require_console();console.require_operator_environment();console.require_console_session()
+        console.require_host()
         require(os.environ.get('SUDO_UID')=='1000' and Path('/proc/self/loginuid').read_text().strip()=='1000')
-        require(os.environ.get('SUDO_USER')==pwd.getpwuid(1000).pw_name and os.environ.get('SUDO_COMMAND')==str(INSTALLED))
+        expected_command=str(INSTALLED)+(' --ssh' if mode=='--ssh' else '')
+        require(os.environ.get('SUDO_USER')==pwd.getpwuid(1000).pw_name and os.environ.get('SUDO_COMMAND')==expected_command)
         resource.setrlimit(resource.RLIMIT_CORE,(0,0))
         os.umask(0o077)
-        return subprocess.run(scope_command(),env=CLEAN,close_fds=True,timeout=210,check=False).returncode
+        return subprocess.run(scope_command(mode),env=CLEAN,close_fds=True,timeout=210,check=False).returncode
     except BaseException:
         os.write(1,b'\r\n{"mode":"paper-credential-stage","staged":"UNKNOWN","connected":false,"error":"refused_or_incomplete","gate2_passed":false,"secret_entry_authorized":false,"runtime_crash_suppression_qualified":false}\n')
         return 1

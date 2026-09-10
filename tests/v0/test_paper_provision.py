@@ -13,6 +13,7 @@ import tempfile
 import termios
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -92,12 +93,45 @@ class Publication(unittest.TestCase):
 
 class Boundaries(unittest.TestCase):
     def test_exact_scope_and_clean_environment(self):
-        cmd=P.scope_command()
+        cmd=P.scope_command('--physical')
         for value in ('MemoryMax=512M','MemorySwapMax=0','TasksMax=32','CPUQuota=50%',
                       '--expand-environment=no','/usr/bin/unshare','--mount','private','/usr/bin/python3','-I','-B'):
             self.assertIn(value,cmd)
         self.assertEqual(P.CLEAN,{'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'})
         self.assertFalse(any('$' in value for value in cmd))
+        ssh=P.scope_command('--ssh')
+        self.assertEqual(ssh[-2:],['/usr/local/sbin/ai-invest-paper-provision','--worker','--ssh'][-2:])
+        self.assertEqual(P.scope_command('--physical')[-1],'--worker')
+    def test_ssh_mode_requires_pts_and_bounded_environment(self):
+        bad=dict(P.CLEAN,SSH_TTY='/dev/pts/7',SSH_CONNECTION='a b c d',LD_PRELOAD='bad')
+        with patch.dict(P.os.environ,bad,clear=True):
+            with self.assertRaises(P.Refused): P.require_ssh_environment()
+        with patch.object(P.os,'isatty',return_value=False):
+            with self.assertRaises(P.Refused): P.require_ssh_terminal({})
+    def test_ssh_environment_keeps_path_incidental_and_rejects_term_modes(self):
+        safe=dict(P.CLEAN,PATH='/usr/local/bin',TERM='xterm-256color',SUDO_GID='1000')
+        with patch.dict(P.os.environ,safe,clear=True): P.require_ssh_environment()
+        device=os.makedev(136,7); character=SimpleNamespace(st_mode=stat.S_IFCHR,st_rdev=device)
+        valid={'TERM':'xterm-256color','SSH_TTY':'/dev/pts/7'}
+        fixture=patch.object(P.os,'isatty',return_value=True),patch.object(P.os,'ttyname',return_value='/dev/pts/7'),\
+            patch.object(P.os,'fstat',return_value=character),patch.object(P.os,'lstat',return_value=character),\
+            patch.object(P.Path,'read_text',return_value=') S 0 0 0 '+str(device)),patch.object(P.os,'tcgetpgrp',return_value=P.os.getpgrp())
+        with fixture[0],fixture[1],fixture[2],fixture[3],fixture[4],fixture[5]:
+            P.require_ssh_terminal(valid)
+            for term in ('screen','tmux-256color'):
+                with self.subTest(term=term):
+                    with self.assertRaises(P.Refused): P.require_ssh_terminal(dict(valid,TERM=term))
+            with self.assertRaises(P.Refused): P.require_ssh_terminal(dict(valid,SSH_TTY='/dev/pts/8'))
+            with patch.object(P.os,'tcgetpgrp',return_value=P.os.getpgrp()+1):
+                with self.assertRaises(P.Refused): P.require_ssh_terminal(valid)
+    def test_ssh_logind_binds_tty_service_and_rejects_duplicates(self):
+        keys=('Active','Remote','Type','Class','User','LockedHint','State','TTY','Service')
+        good='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','LockedHint':'no','State':'active','TTY':'pts/7','Service':'sshd'}[key]) for key in keys])+'\n'
+        result=type('Result',(),{'returncode':0,'stderr':'','stdout':good})()
+        with patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',return_value=result): P.require_ssh_session()
+        for altered in (good.replace('TTY=pts/7','TTY=pts/8'),good.replace('Service=sshd','Service=login'),good.replace('User=1000','User=1001'),good+'Remote=yes\n',good.replace('TTY=pts/7','TTY=bad')):
+            with self.subTest(altered=altered[-20:]),patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',return_value=type('Result',(),{'returncode':0,'stderr':'','stdout':altered})()):
+                with self.assertRaises(P.Refused): P.require_ssh_session()
     def test_no_process_network_or_interpolation_after_input(self):
         source=inspect.getsource(P.worker)
         for node in ast.walk(ast.parse(source)):
@@ -109,7 +143,7 @@ class Boundaries(unittest.TestCase):
     def test_failed_protection_prevents_input(self):
         console,metadata,terminal,storage=Mock(),Mock(),Mock(),Mock()
         with patch.dict(P.os.environ,P.CLEAN,clear=True),patch.object(P.Path,'read_text',return_value='1000'),patch.object(P,'protect',side_effect=P.Refused):
-            with self.assertRaises(P.Refused): P.worker(console,metadata,terminal,storage)
+            with self.assertRaises(P.Refused): P.worker(console,metadata,terminal,storage,"--physical")
         terminal.read_disposable.assert_not_called();terminal.display.assert_not_called()
     def test_refusal_is_bounded_and_flags_false(self):
         with patch.object(P.os,'getuid',return_value=1000),patch.object(P.os,'write') as write:
@@ -121,6 +155,7 @@ class Boundaries(unittest.TestCase):
         for source,_,_,digest in I.FILES: self.assertEqual(hashlib.sha256((ROOT/source).read_bytes()).hexdigest(),digest)
         policy=(ROOT/I.FILES[-1][0]).read_text()
         self.assertIn('/usr/local/sbin/ai-invest-paper-provision ""',policy)
+        self.assertIn('/usr/local/sbin/ai-invest-paper-provision --ssh',policy)
         self.assertNotIn('NOPASSWD',policy);self.assertNotIn('--worker',policy)
         self.assertNotIn('ALL=(ALL)',policy)
         for line in policy.splitlines():

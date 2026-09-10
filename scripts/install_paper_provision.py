@@ -14,10 +14,10 @@ LIB=Path('/usr/local/libexec/ai-invest')
 POLICY=Path('/etc/sudoers.d/ai-invest-paper-provision')
 CLEAN={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 FILES=(
- ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'82f91e8f370442a6aeeedff3552c7c295516c5eb2760a1875b6c3fa8c8887d79'),
+ ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659'),
  ('scripts/qualification/terminal_exchange.py',LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  ('scripts/setup_postgres_dirs.py',LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
- ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'4e5eb0c4132a9d6d01900e52450661a354fec60cf01b4d5acdb243477e2d2ee5'),
+ ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e'),
 )
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),

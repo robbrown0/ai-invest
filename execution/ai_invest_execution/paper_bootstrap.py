@@ -15,7 +15,7 @@ from .web_store import FileVault, WebStore, Refused
 
 STAGED='initial-paper.json'
 # Fixed actor namespace, not a client certificate or user-controlled identity.
-CONSOLE_ACTOR=hashlib.sha256(b'ai-invest:physical-console:uid1000:paper-initial:v1').hexdigest()
+CONSOLE_ACTOR=hashlib.sha256(b'ai-invest:authenticated-operator:uid1000:paper-initial:v2').hexdigest()
 
 
 def staged(vault):

@@ -20,7 +20,7 @@ cd /home/rob/ai-invest &&
 test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
-printf '%s\n' '14199768243e122911ba5b3e601d31b9e46e1bab86cdd1ca1235a1faf00a919d  scripts/install_paper_provision.py' | sha256sum --check - &&
+printf '%s\n' 'c16031f656ed804b2dbb8c9d7c8dc72b477a622c39045923b0c8956c356ba882  scripts/install_paper_provision.py' | sha256sum --check - &&
 sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py
 ```
 
@@ -28,11 +28,13 @@ Expected non-secret state: `installed_not_provisioned`. Any refusal means stop;
 do not remove files to make a repeated install succeed. No privileged change has
 been performed by the assistant. Ordinary sudo retains its existing PTY policy.
 
-At the physical Linux virtual console, use the existing approved local operator
-login (not SSH, GUI terminal, tmux, screen, recording, redirection or a pipe):
+At your normal SSH terminal, with a PTY allocated (`ssh -t`), use the existing
+approved local operator login. Do not use a GUI relay, tmux, screen, recording,
+redirection or a pipe. Use normal SSH host-key verification; do not disable
+known-host checking or use a terminal/session recorder:
 
 ```bash
-sudo /usr/local/sbin/ai-invest-paper-provision
+sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```
 
 Enter the ordinary sudo password only at sudo's prompt. The protected helper
@@ -78,20 +80,27 @@ a separate prerequisite, with TLS automation still deferred.
 
 The new command-only sudoers file is
 `/etc/sudoers.d/ai-invest-paper-provision`; its grant is one digest-pinned
-`/usr/local/sbin/ai-invest-paper-provision` with **no arguments**, PASSWD/NOSETENV,
-fresh authentication and command-scoped PTY/I/O-log exceptions. No global sudo,
+`/usr/local/sbin/ai-invest-paper-provision` with either no arguments (physical
+console) or exactly `--ssh`, PASSWD/NOSETENV, fresh authentication and
+command-scoped PTY/I/O-log exceptions. No global sudo,
 swap, crash, logging or existing operator policy changes. No --io-test grant.
 Root-owned pinned terminal/storage helper copies are under the existing protected
 `/usr/local/libexec/ai-invest` directory. No user-selected executable/path/tenant.
 
-The root input worker reuses current physical-console, login/session, operator,
-environment and host checks. Before plaintext input it checks effective 512MiB
+The root input worker reuses current SSH-PTY (or physical-console), login/session, operator,
+environment and host checks. SSH mode binds the foreground `/dev/pts/N` to the
+active remote logind session's same TTY, UID, service (`ssh`/`sshd`) and remote
+state; it rejects GUI/tmux/screen indicators and malformed duplicate metadata.
+Before plaintext input it checks effective 512MiB
 memory, zero swap.max/current, 32 tasks, half a CPU, core0, private mounts and
 non-dumpable state. It repeats applicable controls before publication. It does
 not exec, fork, network, invoke Docker or relay plaintext to its parent after
-input. Only that worker/Python libraries and the trusted terminal/kernel input
-stack receive the typed plaintext at this stage. The pre-input parent contains
-no credential bytes. No claim of reliable Python memory zeroization is made.
+input. The approved SSH exception necessarily adds the local SSH client, encrypted
+SSH transport, server sshd/session path and terminal buffers as trusted plaintext
+holders; their recording, kernel-buffer, swap and crash/core-retention behavior is
+outside the worker cgroup checks and is **not qualified by this procedure**. The
+pre-input parent and application/model processes contain no credential bytes. No
+claim of reliable Python memory zeroization is made.
 
 Only `/srv/ai-invest-secure/runtime/paper-credentials` is created: UID10003/GID26,
 0700, on the verified dedicated LUKS2 filesystem. Exclusive 0600 initial staging
@@ -107,8 +116,9 @@ HTTP/TLS libraries and DNS threads run inside that same protected process/cgroup
 no child process receives credential plaintext. Only fixed HTTPS PAPER/data GET
 URLs are available; no proxy, redirects, shell or order API. Credentials never
 enter SQL or research. Validated snapshots and an immutable credential reference
-are saved with an audit event; the fixed console actor is a namespaced SHA256
-marker, **not** an impersonated browser/client-certificate identity. Ambiguous
+are saved with an audit event; the fixed authenticated-operator actor is a
+namespaced SHA256 marker, **not** an impersonated browser/client-certificate or
+physical-presence identity. Ambiguous
 commits preserve candidate/version files and stop. Initial staging remains a
 protected local recovery copy, not an independent/off-host backup.
 
