@@ -30,6 +30,15 @@ DEPENDENCIES={
 
 
 class Refused(Exception): pass
+FAILURE_STAGES=frozenset(('entry_validation','dependency_validation','ssh_environment','ssh_terminal','ssh_session','host_binding','sudo_identity','scope_launch','worker_environment','worker_terminal','worker_host_binding','runtime_protection','storage_open','input_ready','precredential'))
+class StageFailure(Refused):
+    def __init__(self,stage): self.stage=stage if stage in FAILURE_STAGES else 'precredential'
+
+def phase(stage,operation):
+    try: return operation()
+    except StageFailure: raise
+    except BaseException: raise StageFailure(stage)
+
 def require(value):
     if not value: raise Refused()
 
@@ -212,19 +221,16 @@ def publish(directory,key,value):
 
 
 def worker(console,metadata,terminal,storage,mode):
-    require(dict(os.environ)==CLEAN)
-    if mode=='--ssh':
-        # Parent validated the SSH logind session before entering this scope.
-        # A systemd-run scope is not itself a logind session.
-        require_ssh_terminal({})
+    phase("worker_environment",lambda: require(dict(os.environ)==CLEAN))
+    if mode=="--ssh":
+        phase("worker_terminal",lambda: require_ssh_terminal({}))
     else:
-        console.require_console();console.require_console_session()
-    console.require_host(scoped=True)
-    require(Path('/proc/self/loginuid').read_text().strip()=='1000')
-    group=protect(metadata)
-    snapshot=metadata.operator_snapshot()
-    require(ssh_metadata_ok(snapshot) if mode=='--ssh' else metadata.operator_ok(snapshot))
-    directory=open_storage(storage)
+        phase("worker_terminal",lambda: (console.require_console(),console.require_console_session()))
+    phase("worker_host_binding",lambda: (console.require_host(scoped=True),require(Path("/proc/self/loginuid").read_text().strip()=="1000")))
+    group=phase("runtime_protection",lambda: protect(metadata))
+    snapshot=phase("runtime_protection",metadata.operator_snapshot)
+    phase("runtime_protection",lambda: require(ssh_metadata_ok(snapshot) if mode=="--ssh" else metadata.operator_ok(snapshot)))
+    directory=phase("storage_open",lambda: open_storage(storage))
     try:
         state={};deadline=time.monotonic()+180
         with terminal.interruptions():
@@ -232,10 +238,7 @@ def worker(console,metadata,terminal,storage,mode):
             try:
                 with terminal.quiet_terminal(0,state):
                     prompt=b'PAPER-only protected setup. No recorder or real-money keys.\r\nType PAPER-CHECK to test hidden input, then Enter: '
-                    terminal.display(1,prompt,deadline)
-                    require(terminal.read_disposable(0,deadline)==b'PAPER-CHECK')
-                    runtime(metadata,group)
-                    terminal.display(1,b'\r\nInput checked. Alpaca PAPER API key (hidden): ',deadline)
+                    phase("input_ready",lambda: (terminal.display(1,prompt,deadline),require(terminal.read_disposable(0,deadline)==b"PAPER-CHECK")))
                     key=read_value(terminal,0,deadline)
                     runtime(metadata,group)
                     terminal.display(1,b'\r\nAlpaca PAPER secret (hidden): ',deadline)
@@ -251,28 +254,31 @@ def worker(console,metadata,terminal,storage,mode):
 
 
 def main():
+    stage="entry_validation"
     try:
-        require(os.getuid()==0 and Path(__file__).absolute()==INSTALLED and sys.argv[1:] in ([],['--ssh'],['--worker'],['--worker','--ssh']))
-        checked(INSTALLED)
-        console,metadata,terminal,storage=(load(n) for n in ('console','metadata','terminal','storage'))
-        if sys.argv[1:] in (['--worker'],['--worker','--ssh']):
-            worker(console,metadata,terminal,storage,'--ssh' if sys.argv[-1]=='--ssh' else '--physical');return 0
-        mode='--ssh' if sys.argv[1:]==['--ssh'] else '--physical'
-        if mode=='--ssh':
-            require_ssh_environment()
-            require_ssh_terminal(os.environ);require_ssh_session()
+        phase("entry_validation",lambda: require(os.getuid()==0 and Path(__file__).absolute()==INSTALLED and sys.argv[1:] in ([],["--ssh"],["--worker"],["--worker","--ssh"])))
+        phase("entry_validation",lambda: checked(INSTALLED))
+        stage="dependency_validation"
+        console,metadata,terminal,storage=phase("dependency_validation",lambda: tuple(load(n) for n in ("console","metadata","terminal","storage")))
+        if sys.argv[1:] in (["--worker"],["--worker","--ssh"]):
+            return worker(console,metadata,terminal,storage,"--ssh" if sys.argv[-1]=="--ssh" else "--physical") or 0
+        mode="--ssh" if sys.argv[1:]==["--ssh"] else "--physical"
+        if mode=="--ssh":
+            phase("ssh_environment",require_ssh_environment)
+            phase("ssh_terminal",lambda: require_ssh_terminal(os.environ))
+            phase("ssh_session",require_ssh_session)
         else:
-            console.require_console();console.require_operator_environment();console.require_console_session()
-        console.require_host()
-        require(os.environ.get('SUDO_UID')=='1000' and Path('/proc/self/loginuid').read_text().strip()=='1000')
-        expected_command=str(INSTALLED)+(' --ssh' if mode=='--ssh' else '')
-        require(os.environ.get('SUDO_USER')==pwd.getpwuid(1000).pw_name and os.environ.get('SUDO_COMMAND')==expected_command)
-        resource.setrlimit(resource.RLIMIT_CORE,(0,0))
-        os.umask(0o077)
-        return subprocess.run(scope_command(mode),env=CLEAN,close_fds=True,timeout=210,check=False).returncode
+            phase("ssh_terminal",lambda: (console.require_console(),console.require_operator_environment(),console.require_console_session()))
+        phase("host_binding",console.require_host)
+        phase("sudo_identity",lambda: (require(os.environ.get("SUDO_UID")=="1000" and Path("/proc/self/loginuid").read_text().strip()=="1000"),require(os.environ.get("SUDO_USER")==pwd.getpwuid(1000).pw_name and os.environ.get("SUDO_COMMAND")==str(INSTALLED)+(" --ssh" if mode=="--ssh" else ""))))
+        phase("scope_launch",lambda: (resource.setrlimit(resource.RLIMIT_CORE,(0,0)),os.umask(0o077),subprocess.run(scope_command(mode),env=CLEAN,close_fds=True,timeout=210,check=False).returncode)[-1])
+        return 0
+    except StageFailure as failure:
+        stage=failure.stage
     except BaseException:
-        os.write(1,b'\r\n{"mode":"paper-credential-stage","staged":"UNKNOWN","connected":false,"error":"refused_or_incomplete","gate2_passed":false,"secret_entry_authorized":false,"runtime_crash_suppression_qualified":false}\n')
-        return 1
+        pass
+    os.write(1,("\r\n{\"mode\":\"paper-credential-stage\",\"staged\":\"UNKNOWN\",\"connected\":false,\"error\":\"refused_or_incomplete\",\"failure_stage\":\""+stage+"\",\"gate2_passed\":false,\"secret_entry_authorized\":false,\"runtime_crash_suppression_qualified\":false}\n").encode())
+    return 1
 
 
 if __name__=='__main__': raise SystemExit(main())

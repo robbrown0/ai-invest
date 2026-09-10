@@ -1,5 +1,5 @@
 # V0 single-host PAPER onboarding infrastructure. No generic privilege grant.
-Cmnd_Alias AI_INVEST_PAPER_PROVISION = sha256:44d620a2c41822e73d8cd931b1b357e8919e350fd41c8e5a238483efff3df737 /usr/local/sbin/ai-invest-paper-provision "", sha256:44d620a2c41822e73d8cd931b1b357e8919e350fd41c8e5a238483efff3df737 /usr/local/sbin/ai-invest-paper-provision --ssh
+Cmnd_Alias AI_INVEST_PAPER_PROVISION = sha256:d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6 /usr/local/sbin/ai-invest-paper-provision "", sha256:d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6 /usr/local/sbin/ai-invest-paper-provision --ssh
 Defaults!AI_INVEST_PAPER_PROVISION !use_pty,authenticate,timestamp_timeout=0,!exempt_group
 Defaults!AI_INVEST_PAPER_PROVISION env_reset,!env_keep,!env_check,!setenv,always_set_home,set_logname,secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
 Defaults!AI_INVEST_PAPER_PROVISION closefrom=3,!closefrom_override,umask=0077,fdexec=never

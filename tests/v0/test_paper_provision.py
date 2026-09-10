@@ -128,7 +128,7 @@ class Boundaries(unittest.TestCase):
                 with self.assertRaises(P.Refused): P.require_ssh_terminal(valid)
     def test_ssh_scope_uses_parent_session_boundary(self):
         self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
-        self.assertIn('require_ssh_session()',inspect.getsource(P.main))
+        self.assertIn('phase("ssh_session",require_ssh_session)',inspect.getsource(P.main))
 
     def test_ssh_logind_binds_tty_service_and_rejects_duplicates(self):
         keys=('Active','Remote','Type','Class','User','LockedHint','State','TTY','Service')
@@ -143,7 +143,7 @@ class Boundaries(unittest.TestCase):
         for node in ast.walk(ast.parse(source)):
             if isinstance(node,ast.Call):
                 self.assertNotIn(ast.unparse(node.func),('subprocess.run','os.execve','os.fork','eval','exec'))
-        self.assertLess(source.index('group=protect'),source.index('read_value'))
+        self.assertLess(source.index('group=phase'),source.index('read_value'))
         self.assertLess(source.index('operator_ok'),source.index('read_value'))
         self.assertNotIn('key}',source);self.assertNotIn('value}',source)
     def test_failed_protection_prevents_input(self):

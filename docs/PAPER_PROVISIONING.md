@@ -23,14 +23,13 @@ cd /home/rob/ai-invest &&
 test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
-printf '%s\n' 'ff45f6dcc985fdaf6b8497c06b2b5535d2ce469009613da08def703b75299eb8  scripts/install_paper_provision.py' | sha256sum --check - &&
+printf '%s\n' '57337b37b3ead0272be752eb69fcd1d721f511b36799098fe480f9853aba05aa  scripts/install_paper_provision.py' | sha256sum --check - &&
 sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --upgrade &&
 sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```
 
 Expected non-secret installer state: `upgraded_not_provisioned`, followed by the
-hidden SSH prompts. If it refuses, the sanitized JSON includes only a bounded
-`failure_stage` identifier (for example `backup_creation` or `rollback`); stop and report that stage. Do not delete files or retry with a different command. No privileged change has been performed by the assistant.
+hidden SSH prompts. If it refuses, the sanitized JSON includes only a bounded `failure_stage` identifier, including the pre-credential runtime stages (for example `ssh_session`, `worker_host_binding` or `input_ready`); stop and report that stage. Do not delete files or retry with a different command. No privileged change has been performed by the assistant.
 Ordinary sudo retains its existing PTY policy, and the no-argument physical
 command remains available.
 
