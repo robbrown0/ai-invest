@@ -18,6 +18,12 @@ STAGED='initial-paper.json'
 CONSOLE_ACTOR=hashlib.sha256(b'ai-invest:authenticated-operator:uid1000:paper-initial:v2').hexdigest()
 
 
+class ActivationFailure(Refused):
+    def __init__(self,stage):
+        self.stage=stage
+        super().__init__()
+
+
 def staged(vault):
     fd=os.open(STAGED,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC|os.O_NONBLOCK,dir_fd=vault.fd)
     try:
@@ -36,7 +42,7 @@ def staged(vault):
 
 
 def protected_mounts():
-    expected={'/run/ai-invest/paper','/var/run/postgresql'};devices=set()
+    expected={'/run/ai-invest/paper','/run/postgresql'};devices=set()
     for line in Path('/proc/self/mountinfo').read_text().splitlines():
         parts=line.split()
         if len(parts)<10 or parts[4] not in expected: continue
@@ -50,18 +56,30 @@ async def activate(store,vault,reader=PaperWebReader):
     # Peer DB identity, TDE/RLS and advisory ownership are validated by WebStore.open.
     # Never guess an account or replace a current connection on repeated invocation.
     if await store.rows(): raise Refused()
-    credentials=staged(vault)
+    try:
+        credentials=staged(vault)
+    except BaseException:
+        raise ActivationFailure('credential_read') from None
     identifier=uuid4()
     broker=reader(credentials,store.tenant,identifier)
-    async with asyncio.timeout(45):
-        account,_=await broker.account()
-        snapshot=await broker.dashboard(account)
+    try:
+        async with asyncio.timeout(45):
+            account,_=await broker.account()
+            snapshot=await broker.dashboard(account)
+    except BaseException:
+        raise ActivationFailure('paper_api_validation') from None
     encoded=json.dumps(snapshot)
-    if credentials.key_id in encoded or credentials.secret_key in encoded: raise Refused()
-    version=vault.put(store.tenant,identifier,credentials)
+    if credentials.key_id in encoded or credentials.secret_key in encoded: raise ActivationFailure('paper_api_validation')
+    try:
+        version=vault.put(store.tenant,identifier,credentials)
+    except BaseException:
+        raise ActivationFailure('credential_publish') from None
     # After save begins, an ambiguous database response must preserve the immutable
     # credential version. Never delete/retry a possibly committed connection.
-    await store.save(identifier,account,version,snapshot,CONSOLE_ACTOR,'connected')
+    try:
+        await store.save(identifier,account,version,snapshot,CONSOLE_ACTOR,'connected')
+    except BaseException:
+        raise ActivationFailure('database_record') from None
     # Preserve staging as protected recovery evidence; no secret returns to caller.
     return {'mode':'paper-activation','connected':True,'account_read':True,
             'positions_read':True,'orders_read':True,
@@ -87,8 +105,8 @@ async def run():
 def main():
     logging.disable(logging.CRITICAL)
     try: result=asyncio.run(run());status=0
-    except BaseException:
-        result={'mode':'paper-activation','connected':'UNKNOWN','error':'refused_or_incomplete',
+    except ActivationFailure as failure:
+        result={'mode':'paper-activation','connected':'UNKNOWN','error':'refused_or_incomplete','failure_stage':failure.stage,
                 'gate2_passed':False,'secret_entry_authorized':False,'runtime_crash_suppression_qualified':False};status=1
     print(json.dumps(result,separators=(',',':')))
     return status
