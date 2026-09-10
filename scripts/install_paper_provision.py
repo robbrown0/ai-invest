@@ -367,6 +367,19 @@ def upgrade():
                               [read(path,digest) for path,digest in DEPENDENCIES],
                               require(stat.S_IMODE(LIB.stat().st_mode)==0o700)))
     old=[];new=[];backups=[];old_version=None;old_marker=None;marker_backup=None
+    def already_current():
+        try:
+            for _,target,mode,digest in FILES:
+                artifact(target,digest,mode)
+                require(hashlib.sha256(target.read_bytes()).hexdigest()==digest)
+            require(manifest_path().exists() and not manifest_path().is_symlink())
+            validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))
+            validate_existing_backups()
+            return True
+        except BaseException:
+            return False
+    if already_current():
+        return 'already_current_not_provisioned'
     def inspect_old():
         nonlocal old,backups,old_version,old_marker,marker_backup
         validate_existing_backups()
