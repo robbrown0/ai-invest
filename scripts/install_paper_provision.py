@@ -264,11 +264,29 @@ def validate_manifest(version_name, version_files, allow_missing=False):
 
 def current_generation_valid():
     try:
+        current_files=tuple((target,mode,digest) for _,target,mode,digest in FILES)
         for _,target,mode,digest in FILES:
             artifact(target,digest,mode)
             require(hashlib.sha256(target.read_bytes()).hexdigest()==digest)
-        require(manifest_path().exists() and not manifest_path().is_symlink())
-        validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))
+        marker=manifest_path()
+        if marker.is_symlink(): return False
+        if marker.exists():
+            try:
+                validate_manifest(CURRENT_VERSION,current_files)
+                return True
+            except BaseException:
+                # Reconcile only a marker that exactly names a known approved
+                # generation; unknown/corrupt markers remain fail-closed.
+                known=False
+                for name,version_files in APPROVED_OLD_VERSIONS:
+                    try:
+                        validate_manifest(name,version_files); known=True; break
+                    except BaseException:
+                        continue
+                if not known: return False
+                marker.unlink(); sync_parent(marker)
+        write(marker,manifest_bytes(CURRENT_VERSION,current_files),MANIFEST_MODE)
+        validate_manifest(CURRENT_VERSION,current_files)
         return True
     except BaseException:
         return False
