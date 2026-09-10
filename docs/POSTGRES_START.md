@@ -1,5 +1,7 @@
 # PostgreSQL V0 — Directory Handoff
 
+**Historical handoff, now completed.** The human reported directory setup success, and the database has since been initialized, encrypted, migrated and connected. See [current runnable PostgreSQL evidence and commands](POSTGRES_RUNTIME.md). Do not rerun the empty-directory setup or bootstrap commands against initialized storage. The original handoff below is preserved.
+
 The owner reports successful dedicated storage initialization and explicitly approves the local pg_tde file provider for private single-host V0 PAPER development. The keyring stays at `/srv/ai-invest-secure/runtime/tde-keys`, outside PGDATA. No OpenBao, LIVE, commercial or Gate 2 approval follows. This development exception must be replaced/reviewed before production; provider APIs preserve a later supported KMS migration path.
 
 ## One human step now — ordinary SSH terminal is sufficient

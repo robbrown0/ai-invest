@@ -29,7 +29,9 @@ class Workflow:
     def __init__(self, store, broker, scope, clock=None):
         # No configuration switch can attach this demonstration to Alpaca.
         from .synthetic import SyntheticBroker, SyntheticStore
-        if type(store) is not SyntheticStore or type(broker) is not SyntheticBroker:
+        from .postgres import PostgresLedger
+        from .postgres_synthetic import PostgresSyntheticBroker
+        if (type(store),type(broker)) not in ((SyntheticStore,SyntheticBroker),(PostgresLedger,PostgresSyntheticBroker)):
             raise WorkflowError('synthetic_only')
         self.store, self.broker, self.scope = store, broker, scope
         self.clock = clock or (lambda: datetime.now(timezone.utc))

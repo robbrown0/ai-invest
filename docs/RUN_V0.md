@@ -2,7 +2,7 @@
 
 **Status:** Runnable disconnected flow; the requested real Alpaca PAPER end-to-end milestone is NOT complete. Gate 2 NOT PASSED. Both qualification authorization flags remain false.
 
-**Current database handoff:** Dedicated encrypted storage initialization has since succeeded and the local V0 key provider is approved. The [single non-secret directory setup step](POSTGRES_START.md) supersedes the earlier absent-storage blocker below. PostgreSQL and real PAPER remain unconnected; earlier observations are preserved as history.
+**Current database milestone:** The [PostgreSQL-backed CLI](POSTGRES_RUNTIME.md) is running on encrypted storage, with TDE/WAL validation, applied migrations, both-tenant RLS checks and application/database restart recovery. Real Alpaca PAPER remains unconnected. The SQLite instructions and earlier observations below are retained as the previous disconnected milestone, not current database-blocker status.
 
 ## Run now
 

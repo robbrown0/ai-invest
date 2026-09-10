@@ -33,9 +33,20 @@ def main():
     submit.add_argument('--fault', choices=('none', 'timeout', 'crash-after-accept', 'partial'), default='none')
     args = parser.parse_args()
     if args.mode == 'paper-readiness':
+        database_ready=False
+        try:
+            probe=subprocess.run(['/usr/bin/docker','compose','-f',str(ROOT/'infrastructure/application/compose.yaml'),
+                'run','--rm','--no-deps','cli','status'],stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=20)
+            value=json.loads(probe.stdout)
+            database_ready=(probe.returncode==0 and value.get('passed') is True
+                and value.get('mode')=='POSTGRES_DISCONNECTED_SYNTHETIC')
+        except Exception:
+            pass
         print(json.dumps({'mode': 'PAPER', 'ready': False,
-            'blocked_by': ['encrypted_database_not_provisioned', 'runtime_tenant_access_not_qualified',
-                           'protected_credential_provisioning_not_ready', 'paper_execution_not_connected'],
+            'database_connected':database_ready,
+            'blocked_by': ([] if database_ready else ['encrypted_database_unavailable'])+
+                ['protected_credential_provisioning_not_ready', 'paper_execution_not_connected'],
             'secret_entry_authorized': False, 'runtime_crash_suppression_qualified': False}))
         return 2
     store = broker = None

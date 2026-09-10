@@ -1,6 +1,6 @@
 # Working V0 Implementation — Current Direction
 
-**Current status:** A [runnable disconnected CLI milestone](RUN_V0.md) follows this first foundation slice. Real PAPER connectivity remains blocked by absent encrypted database/protected credential runtime and unfinished real execution integration. Gate 2 NOT PASSED. No LIVE capability or unattended trading authorization. The first-slice record below is preserved as historical implementation context.
+**Current status:** The [PostgreSQL-backed CLI](POSTGRES_RUNTIME.md) now runs against encrypted persistent storage, with migration, RLS and restart evidence. Real PAPER connectivity still requires protected credential provisioning and real execution integration. Gate 2 NOT PASSED. No LIVE capability or unattended trading authorization. The first-slice record below is preserved as historical implementation context.
 
 ## Owner direction and preserved qualification
 

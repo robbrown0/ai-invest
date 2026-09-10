@@ -2,7 +2,8 @@
 name: ai-invest
 services:
   postgres:
-    image: percona/percona-distribution-postgresql@sha256:d37e949abdbb4f8b1e0ea2cb6961dd70dcba13738c05142978f616da835a79a8
+    image: ai-invest-postgres:17.11.1-tde2.2.2-guard1
+    build: .
     profiles: [manual-database]
     user: '26:26'
     entrypoint: [/usr/pgsql-17/bin/postgres]
@@ -28,6 +29,11 @@ services:
       - /pgwal:ro,size=1m
       - /sshd:ro,size=1m
     volumes:
+      - type: bind
+        source: ../../backend/migrations
+        target: /opt/ai-invest/migrations
+        read_only: true
+        bind: {create_host_path: false}
       - type: bind
         source: /srv/ai-invest-secure/postgresql/data
         target: /pgdata

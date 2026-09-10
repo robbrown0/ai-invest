@@ -1,7 +1,7 @@
-"""Unwired PostgreSQL ledger access; no connection strings or secret loading.
+"""PostgreSQL ledger access; no connection strings or secret loading.
 
-Accepts an already-authenticated psycopg 3 connection from the future protected
-runtime. Does not apply migrations or grant privileges. Not host-qualified.
+Accepts an already-authenticated psycopg 3 connection from the protected
+runtime. Does not apply migrations or grant privileges.
 """
 from contextlib import contextmanager
 import json
@@ -50,6 +50,14 @@ class PostgresLedger:
             return row[0]
         except Exception:
             raise DatabaseRefused() from None
+
+    def events(self, scope):
+        params=self._parameters(scope)
+        return self.connection.execute('SELECT revision,kind FROM ai_invest.runtime_event '
+            'WHERE tenant_id=%s AND account_id=%s ORDER BY revision',params[:2]).fetchall()
+
+    def close(self):
+        self.connection.close()
 
     @contextmanager
     def transaction(self, scope, event):
