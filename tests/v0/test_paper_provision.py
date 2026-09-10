@@ -214,6 +214,21 @@ class Installation(unittest.TestCase):
     def test_partial_install_failure_removes_only_created_artifacts(self): self.exercise()
     def test_partial_failure_preserves_replaced_artifact(self): self.exercise(replace=True)
     def test_candidate_aggregate_and_final_validation_success(self): self.exercise(fail=False)
+    def test_replacement_aggregate_substitutes_duplicate_policy_once(self):
+        with tempfile.TemporaryDirectory(prefix='ai-invest-sudoers-fixture-') as tmp:
+            root=Path(tmp);included=root/'sudoers.d';included.mkdir();base=root/'sudoers';candidate=root/'candidate';old=included/'ai-invest-paper-provision';other=included/'other'
+            policy=b'Cmnd_Alias AI_INVEST_TEST = /bin/true\nrob ALL=(root) AI_INVEST_TEST\n'
+            base.write_text('@includedir /etc/sudoers.d\n');old.write_bytes(policy);other.write_bytes(b'Cmnd_Alias OTHER_TEST = /bin/false\nrob ALL=(root) OTHER_TEST\n');candidate.write_bytes(policy)
+            bad=root/'bad';bad.write_text('@include '+str(old)+'\n@include '+str(candidate)+'\n')
+            with self.assertRaises(Exception): I.validate(bad)
+            real_fstat=os.fstat
+            def fake_fstat(fd):
+                info=real_fstat(fd);values=list(info);values[4]=0;return os.stat_result(values)
+            with patch.object(I,'SUDOERS',base),patch.object(I,'SUDOERS_DIR',included),patch.object(I,'POLICY',old),patch.object(I.os,'fstat',side_effect=fake_fstat):
+                data=I.replacement_aggregate(candidate)
+            self.assertNotIn(str(old).encode(),data);self.assertEqual(data.count(('@include '+str(candidate)).encode()),1)
+            aggregate=root/'aggregate';aggregate.write_bytes(data);I.validate(aggregate)
+
     def test_in_place_upgrade_verifies_old_artifacts_and_rolls_back(self):
         with tempfile.TemporaryDirectory(prefix='ai-invest-upgrade-fixture-') as tmp:
             root=Path(tmp);lib=root/'lib';lib.mkdir(mode=0o700);policy=root/'sudoers';
@@ -233,7 +248,7 @@ class Installation(unittest.TestCase):
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
                 patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'DEPENDENCIES',()),\
                 patch.object(I,'parents'),\
-                patch.object(I,'validate'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
                 patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
                 patch.object(I.sys,'argv',['installer','--upgrade']):
                     self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
@@ -241,7 +256,7 @@ class Installation(unittest.TestCase):
             backups=[I.backup_path(path) for path in targets]
             self.assertTrue(all(path.exists() and path.read_bytes()==old for path in backups))
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
-                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'validate'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
                 patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
                 patch.object(I.sys,'argv',['installer','--rollback-upgrade']):
                     self.assertEqual(I.rollback_upgrade(),'rolled_back_previous_version')

@@ -12,6 +12,8 @@ import tempfile
 ROOT=Path('/home/rob/ai-invest')
 LIB=Path('/usr/local/libexec/ai-invest')
 POLICY=Path('/etc/sudoers.d/ai-invest-paper-provision')
+SUDOERS=Path('/etc/sudoers')
+SUDOERS_DIR=Path('/etc/sudoers.d')
 CLEAN={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 FILES=(
  ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659'),
@@ -98,6 +100,36 @@ def replace_file(path,data,mode):
         if temporary.exists(): temporary.unlink()
 
 
+def replacement_aggregate(candidate):
+    """Build post-upgrade sudoers with this policy substituted exactly once."""
+    fd=os.open(SUDOERS,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+    try:
+        info=os.fstat(fd)
+        require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_nlink==1 and not info.st_mode&0o022 and 0<info.st_size<=1048576)
+        base=os.read(fd,1048577)
+        require(len(base)==info.st_size)
+    finally: os.close(fd)
+    try: lines=base.decode('utf-8').splitlines(keepends=True)
+    except BaseException: raise RuntimeError('sudoers_encoding')
+    entries=[]
+    with os.scandir(SUDOERS_DIR) as scan:
+        for entry in scan:
+            name=entry.name
+            if name==POLICY.name or '.' in name or name.endswith('~'): continue
+            require(entry.is_file(follow_symlinks=True))
+            entries.append((name,Path(entry.path)))
+    entries.append((POLICY.name,candidate))
+    entries.sort(key=lambda item:item[0])
+    includes=['@include '+str(path)+'\n' for _,path in entries]
+    output=[];replaced=0
+    for line in lines:
+        if line.strip() in ('@includedir /etc/sudoers.d','@includedir /etc/sudoers.d/'):
+            output.extend(includes);replaced+=1
+        else: output.append(line)
+    require(replaced==1)
+    return ''.join(output).encode('utf-8')
+
+
 def upgrade():
     phase('precheck',lambda: (require(os.getuid()==0 and sys.argv[1:]==['--upgrade']),
                               validate(),
@@ -119,7 +151,7 @@ def upgrade():
         work=Path(directory);candidate=work/'policy'
         phase('candidate_policy_validation',lambda: (write(candidate,new[-1][0],0o440),validate(candidate)))
         aggregate=work/'aggregate'
-        phase('aggregate_sudo_validation',lambda: (write(aggregate,('@include /etc/sudoers\n@include '+str(candidate)+'\n').encode(),0o600),validate(aggregate)))
+        phase('aggregate_sudo_validation',lambda: (write(aggregate,replacement_aggregate(candidate),0o600),validate(aggregate)))
     made=[]
     def make_backups():
         for (source,target,mode,digest),backup,data in zip(FILES,backups,new):

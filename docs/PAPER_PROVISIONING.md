@@ -13,7 +13,7 @@ installer has already run, so do not use the fresh-install mode. Review the
 completion commit and [security review](reviews/PAPER_PROVISION_REVIEW.md). Do
 not run concurrent root configuration changes. The upgrade verifies the exact
 old helper/policy hashes, ownership, modes, link counts and non-symlink state;
-it stages the new fixed files, validates candidate and aggregate sudo syntax,
+it stages the new fixed files, validates the candidate and a replacement-aware aggregate sudo configuration (the old policy is substituted exactly once),
 keeps exact rollback copies, and does not read or create credentials.
 
 From your own SSH terminal:
@@ -23,7 +23,7 @@ cd /home/rob/ai-invest &&
 test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
-printf '%s\n' '344b36c41d41ece3ec7ea97fd15b5f70333234cc1f79c7b3e3f86851e5c62b62  scripts/install_paper_provision.py' | sha256sum --check - &&
+printf '%s\n' '84a830e3fa788da894674356293df499f988d29b679b556aac7ace78377d861d  scripts/install_paper_provision.py' | sha256sum --check - &&
 sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --upgrade &&
 sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```
