@@ -93,22 +93,22 @@ def require_ssh_terminal(environment):
     require(terminal==os.fstat(0).st_rdev and os.tcgetpgrp(0)==os.getpgrp())
 
 
-ENV_DETAILS=('environment_keyset','environment_dangerous','environment_locale','environment_identity','environment_agent')
+ENV_DETAILS=('environment_key_name','environment_rejected_exact','environment_rejected_prefix','environment_value_shape')
 def require_ssh_environment():
-    # Incidental PAM/SSH values are not authorization signals. Reject only
-    # variables that can alter loader/interpreter/shell behavior; identity is
-    # enforced separately by PTY, logind, sudo and loginuid checks.
     rejected_exact={'LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME',
                     'PYTHONSTARTUP','BASH_ENV','ENV','CDPATH','IFS','SHELLOPTS',
                     'BASHOPTS','PROMPT_COMMAND','PERL5OPT','RUBYOPT','NODE_OPTIONS',
                     'GIT_CONFIG','GIT_CONFIG_GLOBAL','GIT_CONFIG_SYSTEM'}
     rejected_prefixes=('LD_','PYTHON','DYLD_')
     for key,value in os.environ.items():
-        require(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is not None)
+        if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is None:
+            raise StageFailure('ssh_environment','environment_key_name')
         if key in rejected_exact:
-            require(key=='SSH_ORIGINAL_COMMAND' and value=='')
-        require(not key.startswith(rejected_prefixes))
-        require(len(value)<=256 and '\x00' not in value and '\n' not in value)
+            raise StageFailure('ssh_environment','environment_rejected_exact')
+        if key.startswith(rejected_prefixes):
+            raise StageFailure('ssh_environment','environment_rejected_prefix')
+        if len(value)>256 or '\x00' in value or '\n' in value:
+            raise StageFailure('ssh_environment','environment_value_shape')
 
 
 def _session_properties(session):
