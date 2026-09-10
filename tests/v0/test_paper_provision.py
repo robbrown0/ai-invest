@@ -205,7 +205,7 @@ class Installation(unittest.TestCase):
             with patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer']),\
                  patch.object(I,'LIB',lib),patch.object(I,'FILES',files),patch.object(I,'DEPENDENCIES',()),\
                  patch.object(I,'parents'),patch.object(I,'read',return_value=b'PUBLIC_FIXTURE'),\
-                 patch.object(I,'validate',side_effect=validate),patch.object(Path,'lstat',root_stat):
+                 patch.object(I,'validate',side_effect=validate),patch.object(I,'validate_manifest',return_value=b'MANIFEST'),patch.object(Path,'lstat',root_stat):
                 if fail:
                     with self.assertRaises(RuntimeError): I.install()
                 else: self.assertEqual(I.install(),'installed_not_provisioned')
@@ -253,7 +253,7 @@ class Installation(unittest.TestCase):
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
                 patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),\
                 patch.object(I,'parents'),\
-                patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'validate'),patch.object(I,'validate_manifest',return_value=b'MANIFEST'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
                 patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
                 patch.object(I.sys,'argv',['installer','--upgrade']):
                     self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
@@ -261,7 +261,7 @@ class Installation(unittest.TestCase):
             backups=[I.backup_path(path,'fixture') for path in targets]
             self.assertTrue(all(path.exists() and path.read_bytes()==old for path in backups))
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
-                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
+                patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'validate'),patch.object(I,'validate_manifest',return_value=b'MANIFEST'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
                 patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),\
                 patch.object(I.sys,'argv',['installer','--rollback-upgrade']):
                     self.assertEqual(I.rollback_upgrade(),'rolled_back_previous_version')
@@ -285,11 +285,12 @@ class Installation(unittest.TestCase):
                 for source in sources: (root/source).write_bytes(content);(root/source).chmod(mode)
                 def fake_artifact(path,expected,requested_mode):
                     values={digest(data):data for data in contents}
+                    values.update({I.manifest_digest(name,version):I.manifest_bytes(name,version) for name,version in approved})
                     if expected not in values: raise RuntimeError('wrong_digest')
                     return values[expected]
                 def fake_replace(path,data,requested_mode):
                     temp=path.parent/('.tmp-'+path.name);temp.write_bytes(data);temp.chmod(requested_mode);os.replace(temp,path)
-                with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',versions[0]),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),patch.object(I,'parents'),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--upgrade']):
+                with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',versions[0]),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),patch.object(I,'parents'),patch.object(I,'validate'),patch.object(I,'validate_manifest',return_value=b'MANIFEST'),patch.object(I,'replacement_aggregate',return_value=b'AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--upgrade']):
                     self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
             for index in range(1,len(contents)):
                 next_files=tuple((source,target,mode,digest(contents[index])) for source,target in zip(sources,targets))
@@ -297,6 +298,21 @@ class Installation(unittest.TestCase):
                 run(next_files,approved,contents[index])
             for name in names[:-1]:
                 self.assertTrue(all(I.backup_path(target,name).exists() for target in targets))
+            self.assertTrue(all(target.read_bytes()==final for target in targets))
+            # Exercise rollback in the middle of the same lineage, then continue
+            # upgrading from the rolled-back generation.
+            rollback_values={digest(data):data for data in contents}
+            rollback_values.update({I.manifest_digest(name,versions[i]):I.manifest_bytes(name,versions[i]) for i,name in enumerate(names)})
+            def rollback_artifact(path,expected,requested_mode):
+                if expected not in rollback_values: raise RuntimeError('wrong_digest')
+                return rollback_values[expected]
+            def rollback_replace(path,data,requested_mode):
+                temp=path.parent/('.rollback-'+path.name); temp.write_bytes(data); temp.chmod(requested_mode); os.replace(temp,path)
+            with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),patch.object(I,'FILES',tuple((source,target,mode,digest(final)) for source,target in zip(sources,targets))),patch.object(I,'APPROVED_OLD_VERSIONS',tuple((names[i],versions[i]) for i in range(4))),patch.object(I,'validate'),patch.object(I,'validate_manifest',return_value=b'MANIFEST'),patch.object(I,'artifact',side_effect=rollback_artifact),patch.object(I,'replace_file',side_effect=rollback_replace),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--rollback-upgrade']):
+                self.assertEqual(I.rollback_upgrade(),'rolled_back_previous_version')
+            self.assertTrue(all(target.read_bytes()==diagnostic for target in targets))
+            final_files=tuple((source,target,mode,digest(final)) for source,target in zip(sources,targets))
+            run(final_files,tuple((names[i],versions[i]) for i in range(4)),final)
             self.assertTrue(all(target.read_bytes()==final for target in targets))
 
     def test_rollback_selects_newest_verified_generation_and_retains_older(self):
@@ -313,10 +329,11 @@ class Installation(unittest.TestCase):
                 for target in targets:
                     backup=I.backup_path(target,name); backup.write_bytes(data); backup.chmod(mode)
             values={digest(data):data for data in payloads}
+            values.update({I.manifest_digest(name,version):I.manifest_bytes(name,version) for name,version in approved})
             def fake_artifact(path,expected,requested_mode):
                 return values[expected]
-            with patch.object(I,'FILES',tuple((str(target),target,mode,digest(payloads[-1])) for target in targets)), \
-                 patch.object(I,'APPROVED_OLD_VERSIONS',approved), patch.object(I,'artifact',side_effect=fake_artifact):
+            with patch.object(I,'LIB',lib), patch.object(I,'FILES',tuple((str(target),target,mode,digest(payloads[-1])) for target in targets)), \
+                 patch.object(I,'APPROVED_OLD_VERSIONS',approved), patch.object(I,'validate_manifest',return_value=b'MANIFEST'), patch.object(I,'artifact',side_effect=fake_artifact):
                 selected=I.rollback_candidates()
             self.assertEqual(selected[0],'ssh-diagnostic-v3')
             self.assertTrue(all(I.backup_path(target,'ssh-v1').exists() for target in targets))

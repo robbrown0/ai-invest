@@ -46,6 +46,8 @@ DIAGNOSTIC_OLD_FILES=(
  (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
 )
 APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES))
+CURRENT_VERSION='ssh-diagnostic-v3'
+MANIFEST_MODE=0o400
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),
  (LIB/'operator_preflight.py','e3f5e14813b66a216b84c23e9261d3c888a5eacd41a626a8250eba11d435a91c'),
@@ -107,6 +109,27 @@ def backup_path(path,version=None):
     return path.parent / ('.'+path.name+suffix)
 
 
+def manifest_path():
+    return LIB/'paper-provision.manifest'
+
+
+def manifest_bytes(version_name, version_files):
+    artifacts=[{'name':target.name,'mode':mode,'sha256':digest}
+               for target,mode,digest in version_files]
+    return (json.dumps({'format':1,'version':version_name,'artifacts':artifacts},
+                       sort_keys=True,separators=(',',':'))+'\n').encode()
+
+
+def manifest_digest(version_name, version_files):
+    return hashlib.sha256(manifest_bytes(version_name,version_files)).hexdigest()
+
+
+def validate_manifest(version_name, version_files, allow_missing=False):
+    path=manifest_path()
+    if allow_missing and not path.exists() and not path.is_symlink(): return None
+    return artifact(path,manifest_digest(version_name,version_files),MANIFEST_MODE)
+
+
 def replace_file(path,data,mode):
     fd,name=tempfile.mkstemp(prefix='paper-provision.',dir=path.parent)
     temporary=Path(name)
@@ -121,16 +144,23 @@ def replace_file(path,data,mode):
 
 
 def validate_existing_backups():
-    for _,target,_,_ in FILES:
-        known={backup_path(target)}|{backup_path(target,name) for name,_ in APPROVED_OLD_VERSIONS}
+    # Every rollback generation is an all-or-nothing set for the four
+    # installed artifacts.  The manifest backup is optional only for legacy
+    # generations created before manifests existed.
+    targets=[target for _,target,_,_ in FILES]
+    marker=manifest_path()
+    known={backup_path(target) for target in targets}|{backup_path(target,name) for target in targets for name,_ in APPROVED_OLD_VERSIONS}
+    known.add(backup_path(marker))
+    known.update(backup_path(marker,name) for name,_ in APPROVED_OLD_VERSIONS)
+    for target in targets+[marker]:
         prefix='.'+target.name+'.paper-provision.previous'
         for entry in target.parent.iterdir():
             if entry.name.startswith(prefix): require(entry in known)
-        legacy=backup_path(target)
-        legacy_state=legacy.exists() or legacy.is_symlink()
-        require(all((backup_path(item[1]).exists() or backup_path(item[1]).is_symlink()) == legacy_state for item in FILES))
-    legacy=[backup_path(target) for _,target,_,_ in FILES]
-    if all(path.exists() and not path.is_symlink() for path in legacy):
+    legacy=[backup_path(target) for target in targets]
+    require(not backup_path(marker).exists() and not backup_path(marker).is_symlink())
+    legacy_state=[path.exists() or path.is_symlink() for path in legacy]
+    require(all(state==legacy_state[0] for state in legacy_state))
+    if all(legacy_state):
         matches=[]
         for name,version_files in APPROVED_OLD_VERSIONS:
             try:
@@ -142,24 +172,33 @@ def validate_existing_backups():
         paths=[backup_path(target,name) for target,_,_ in version_files]
         present=[path.exists() or path.is_symlink() for path in paths]
         require(not any(present) or all(present))
+        marker_backup=backup_path(marker,name)
+        marker_present=marker_backup.exists() or marker_backup.is_symlink()
+        require(not marker_present or all(present))
         if all(present):
             for (target,mode,digest),path in zip(version_files,paths): artifact(path,digest,mode)
+            if marker_present:
+                artifact(marker_backup,manifest_digest(name,version_files),MANIFEST_MODE)
 
 
 def rollback_candidates():
     for _,target,mode,digest in FILES: artifact(target,digest,mode)
+    current_files=tuple((target,mode,digest) for _,target,mode,digest in FILES)
+    validate_manifest(CURRENT_VERSION,current_files)
     versioned=[]
+    marker=manifest_path()
     for name,version_files in APPROVED_OLD_VERSIONS:
         paths=[backup_path(target,name) for target,_,_ in version_files]
         present=[path.exists() or path.is_symlink() for path in paths]
         require(not any(present) or all(present))
         if all(present):
-            data=[]
-            for (target,mode,digest),path in zip(version_files,paths): data.append(artifact(path,digest,mode))
-            versioned.append((name,version_files,data,paths))
+            data=[artifact(path,digest,mode) for (target,mode,digest),path in zip(version_files,paths)]
+            marker_backup=backup_path(marker,name)
+            marker_data=None
+            if marker_backup.exists() or marker_backup.is_symlink():
+                marker_data=artifact(marker_backup,manifest_digest(name,version_files),MANIFEST_MODE)
+            versioned.append((name,version_files,data,paths,marker_backup if marker_data is not None else None,marker_data))
     if versioned:
-        # Multiple verified generations are intentional.  Roll back only to
-        # the newest approved predecessor, while retaining older copies.
         return versioned[-1]
     legacy=[backup_path(target) for _,target,_,_ in FILES]
     require(all(path.exists() and not path.is_symlink() for path in legacy))
@@ -167,7 +206,7 @@ def rollback_candidates():
     for name,version_files in APPROVED_OLD_VERSIONS:
         try:
             data=[artifact(path,digest,mode) for (target,mode,digest),path in zip(version_files,legacy)]
-            matches.append((name,version_files,data,legacy))
+            matches.append((name,version_files,data,legacy,None,None))
         except BaseException: pass
     require(len(matches)==1);return matches[0]
 
@@ -207,9 +246,9 @@ def upgrade():
                               validate(),
                               [read(path,digest) for path,digest in DEPENDENCIES],
                               require(stat.S_IMODE(LIB.stat().st_mode)==0o700)))
-    old=[];new=[];backups=[];old_version=None
+    old=[];new=[];backups=[];old_version=None;old_marker=None;marker_backup=None
     def inspect_old():
-        nonlocal old,backups,old_version
+        nonlocal old,backups,old_version,old_marker,marker_backup
         validate_existing_backups()
         matches=[]
         for version_name,version_files in APPROVED_OLD_VERSIONS:
@@ -220,11 +259,16 @@ def upgrade():
                     candidate_old.append(artifact(target,old_digest,old_mode))
                     backup=backup_path(target,version_name);require(not backup.exists() and not backup.is_symlink())
                     candidate_backups.append(backup)
-                matches.append((version_name,candidate_old,candidate_backups))
+                marker=manifest_path()
+                marker_present=marker.exists() or marker.is_symlink()
+                if marker_present: validate_manifest(version_name,tuple((target,mode,digest) for target,mode,digest in version_files))
+                candidate_marker_backup=backup_path(marker,version_name)
+                if marker_present: require(not candidate_marker_backup.exists() and not candidate_marker_backup.is_symlink())
+                matches.append((version_name,candidate_old,candidate_backups,marker_present,candidate_marker_backup))
             except BaseException:
                 continue
         require(len(matches)==1)
-        old_version,old,backups=matches[0]
+        old_version,old,backups,old_marker,marker_backup=matches[0]
     phase('old_artifact_validation',inspect_old)
     def inspect_new():
         for source,target,mode,digest in FILES:
@@ -240,16 +284,24 @@ def upgrade():
         for (source,target,mode,digest),backup,data in zip(FILES,backups,new):
             os.link(target,backup,follow_symlinks=False);sync_parent(backup)
             require(backup.lstat().st_nlink==2);made.append(backup)
+        if old_marker:
+            os.link(manifest_path(),marker_backup,follow_symlinks=False);sync_parent(marker_backup)
+            require(marker_backup.lstat().st_nlink==2);made.append(marker_backup)
     def restore():
         for (source,target,mode,digest),backup,original in zip(FILES,backups,old):
             if backup.exists() and target.exists(): replace_file(target,original,mode)
+        if old_marker:
+            if marker_backup.exists():
+                old_files=next(files for name,files in APPROVED_OLD_VERSIONS if name==old_version)
+                replace_file(manifest_path(),manifest_bytes(old_version,old_files),MANIFEST_MODE)
+        elif manifest_path().exists() and not manifest_path().is_symlink(): manifest_path().unlink();sync_parent(manifest_path())
         for backup in made:
             if backup.exists(): backup.unlink();sync_parent(backup)
     try:
         phase('backup_creation',make_backups)
-        phase('replacement',lambda: [replace_file(target,data,mode) for (_,target,mode,digest),(data,_,_) in zip(FILES,new)])
+        phase('replacement',lambda: ([replace_file(target,data,mode) for (_,target,mode,digest),(data,_,_) in zip(FILES,new)], replace_file(manifest_path(),manifest_bytes(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES)),MANIFEST_MODE)))
         phase('aggregate_sudo_validation',validate)
-        phase('new_artifact_validation',lambda: [artifact(target,digest,mode) for (_,target,mode,digest),(data,_,_) in zip(FILES,new)])
+        phase('new_artifact_validation',lambda: ([artifact(target,digest,mode) for (_,target,mode,digest),(data,_,_) in zip(FILES,new)], validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))))
     except StageFailure:
         phase('rollback',restore)
         raise
@@ -262,15 +314,19 @@ def upgrade():
 def rollback_upgrade():
     require(os.getuid()==0 and sys.argv[1:]==['--rollback-upgrade'])
     validate()
-    version_name,version_files,old,backups=rollback_candidates()
+    version_name,version_files,old,backups,marker_backup,marker_data=rollback_candidates()
     try:
         for (target,mode,digest),data in zip(version_files,old): replace_file(target,data,mode)
+        if marker_data is not None: replace_file(manifest_path(),marker_data,MANIFEST_MODE)
+        elif manifest_path().exists() and not manifest_path().is_symlink(): manifest_path().unlink();sync_parent(manifest_path())
         validate()
         for target,mode,digest in version_files: artifact(target,digest,mode)
+        if marker_data is not None: artifact(manifest_path(),manifest_digest(version_name,version_files),MANIFEST_MODE)
     except BaseException:
         # Leave rollback copies intact for a guarded human recovery; no deletion on ambiguity.
         raise
     for backup in backups: backup.unlink();sync_parent(backup)
+    if marker_backup is not None and marker_backup.exists(): marker_backup.unlink();sync_parent(marker_backup)
     return 'rolled_back_previous_version'
 
 
@@ -311,6 +367,7 @@ def install():
         parents(target)
         require(not target.exists() and not target.is_symlink())
         data.append(read(ROOT/source,digest,True))
+    require(not manifest_path().exists() and not manifest_path().is_symlink())
     created=[]
     # Staging is root-only, fixed public artifacts; no credential path is touched.
     with tempfile.TemporaryDirectory(prefix='paper-install-',dir=LIB) as directory:
@@ -325,6 +382,11 @@ def install():
                 os.link(staged,target,follow_symlinks=False) # Atomic, exclusive, no overwrite.
                 created.append((target,staged.stat().st_ino))
                 staged.unlink();sync_parent(target);read(target,digest)
+            staged=work/'manifest';write(staged,manifest_bytes(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES)),MANIFEST_MODE)
+            os.link(staged,manifest_path(),follow_symlinks=False)
+            created.append((manifest_path(),staged.stat().st_ino))
+            staged.unlink();sync_parent(manifest_path())
+            validate_manifest(CURRENT_VERSION,tuple((target,mode,digest) for _,target,mode,digest in FILES))
             validate()
         except BaseException:
             # Fixed created files only; never remove replaced files or earlier evidence.
