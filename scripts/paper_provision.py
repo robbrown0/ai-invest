@@ -179,13 +179,14 @@ def require_ssh_session():
         raise StageFailure('ssh_session','session_list_api')
     candidates=[]
     for line in result.stdout.splitlines():
-        if not line.strip():
-            continue
         fields=line.split()
-        if not (2<=len(fields)<=6 and len(fields[0])<=32):
-            raise StageFailure('ssh_session','session_row_shape')
+        if not fields:
+            continue
         session=fields[0]
-        if session in ('self','') or not re.fullmatch(r'[0-9]+',session): continue
+        if session in ('self','') or not re.fullmatch(r'[0-9]+',session):
+            continue
+        if not (2<=len(fields)<=6 and len(session)<=32):
+            raise StageFailure('ssh_session','session_row_shape')
         values=_session_properties(session)
         if _ssh_session_match(values,tty): candidates.append(session)
     if len(candidates)!=1:
