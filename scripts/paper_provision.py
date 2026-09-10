@@ -108,7 +108,7 @@ def _require_ssh_terminal(environment):
     check(foreground==os.getpgrp(), 'terminal_not_foreground')
 
 
-TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_relay_display','terminal_relay_wayland_display','terminal_relay_tmux','terminal_relay_sty','terminal_relay_ssh_original_command','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')+('session_list_api','session_row_shape','session_not_unique')
+TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_relay_display','terminal_relay_wayland_display','terminal_relay_tmux','terminal_relay_sty','terminal_relay_ssh_original_command','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')+('session_list_api','session_row_shape','session_not_found','session_conflict','session_not_unique')
 def require_ssh_terminal(environment):
     try:
         return _require_ssh_terminal(environment)
@@ -189,9 +189,12 @@ def require_ssh_session():
         if not (1<=len(fields)<=16 and len(session)<=32):
             raise StageFailure('ssh_session','session_row_shape')
         values=_session_properties(session)
-        if _ssh_session_match(values,tty): candidates.append(session)
-    if len(candidates)!=1:
-        raise StageFailure('ssh_session','session_not_unique')
+        if _ssh_session_match(values,tty):
+            candidates.append(tuple(sorted(values.items())))
+    if not candidates:
+        raise StageFailure('ssh_session','session_not_found')
+    if len(set(candidates))!=1:
+        raise StageFailure('ssh_session','session_conflict')
 
 
 def ssh_metadata_ok(snapshot):
