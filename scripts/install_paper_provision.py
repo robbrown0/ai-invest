@@ -16,7 +16,7 @@ SUDOERS=Path('/etc/sudoers')
 SUDOERS_DIR=Path('/etc/sudoers.d')
 CLEAN={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 FILES=(
- ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'fe4c4456fc9697c7142ec6b74158f77d4c702a262cd924c95d6dc51871b11efc'),
+ ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'4f8874202ca91f061fd7ede42564d0d2f2b54be13fe2601df91c4085e9238d39'),
  ('scripts/qualification/terminal_exchange.py',LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  ('scripts/setup_postgres_dirs.py',LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),

@@ -69,6 +69,7 @@ def scope_command(mode):
     worker_args=['--worker'] if mode=='--physical' else ['--worker','--ssh']
     return ['/usr/bin/systemd-run','--scope','--quiet','--unit=ai-invest-paper-provision',
         '--expand-environment=no','-p','MemoryMax=512M','-p','MemorySwapMax=0','-p','TasksMax=32','-p','CPUQuota=50%',
+        '/usr/bin/env','-i','PATH=/usr/sbin:/usr/bin:/sbin:/bin','LANG=C','LC_ALL=C',
         '/usr/bin/unshare','--mount','--propagation','private','/usr/bin/python3','-I','-B',str(INSTALLED),*worker_args]
 
 

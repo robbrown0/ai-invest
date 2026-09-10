@@ -24,7 +24,7 @@ test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
 printf '%s
-' 'acecd3cedcb9ceb95e363990dc47d13b18f3cbf85f03dcf1046db9d26a341a07  scripts/install_paper_provision.py' | sha256sum --check - &&
+' '8b81c2f719dd5ffdd8fd1fd17f24e048e4102da6ba32f2a2f9fbeb5d2fc4c586  scripts/install_paper_provision.py' | sha256sum --check - &&
 sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --upgrade &&
 sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```

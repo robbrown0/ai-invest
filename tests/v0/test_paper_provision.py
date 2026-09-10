@@ -97,7 +97,7 @@ class Boundaries(unittest.TestCase):
     def test_exact_scope_and_clean_environment(self):
         cmd=P.scope_command('--physical')
         for value in ('MemoryMax=512M','MemorySwapMax=0','TasksMax=32','CPUQuota=50%',
-                      '--expand-environment=no','/usr/bin/unshare','--mount','private','/usr/bin/python3','-I','-B'):
+                      '--expand-environment=no','/usr/bin/env','-i','PATH=/usr/sbin:/usr/bin:/sbin:/bin','LANG=C','LC_ALL=C','/usr/bin/unshare','--mount','private','/usr/bin/python3','-I','-B'):
             self.assertIn(value,cmd)
         self.assertEqual(P.CLEAN,{'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'})
         self.assertFalse(any('$' in value for value in cmd))
