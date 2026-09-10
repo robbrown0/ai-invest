@@ -95,47 +95,31 @@ def require_ssh_terminal(environment):
 
 ENV_DETAILS=('environment_keyset','environment_dangerous','environment_locale','environment_identity','environment_agent')
 def require_ssh_environment():
-    detail='environment_keyset'
-    try:
-        allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
-                            'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
-                            'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE','LANGUAGE','PWD','SHLVL','_','COLORTERM','LS_COLORS','VTE_VERSION'}
-        unknown=set(os.environ)-allowed
-        detail='environment_keyset'
-        for key in unknown:
-            require(re.fullmatch(r'LC_[A-Z0-9_]+',key) is not None)
-            require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
-        require(not (unknown-set(key for key in unknown if key.startswith('LC_'))))
-        detail='environment_dangerous'
-        for key in ('LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME','PYTHONSTARTUP','BASH_ENV'):
-            require(key not in os.environ)
-        detail='environment_locale'
-        for key in ('LANG','LC_ALL','TERM'):
-            require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
-        for key in ('PWD','COLORTERM','LS_COLORS','VTE_VERSION'):
-            if key in os.environ: require(len(os.environ[key])<=256 and '\n' not in os.environ[key])
-        if 'SHLVL' in os.environ: require(os.environ['SHLVL'].isdigit() and len(os.environ['SHLVL'])<=6)
-        if '_' in os.environ: require(len(os.environ['_'])<=256 and '\n' not in os.environ['_'])
-        language=os.environ.get('LANGUAGE')
-        if language is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-:]{0,64}',language) is not None)
-        ctype=os.environ.get('LC_CTYPE')
-        if ctype is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',ctype) is not None)
-        detail='environment_identity'
-        for key,value in {'HOME':'/root','USER':'root','LOGNAME':'root','MAIL':'/var/mail/root'}.items():
-            require(key not in os.environ or os.environ[key]==value)
-        require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
-        require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
-        detail='environment_agent'
-        agent=os.environ.get('SSH_AUTH_SOCK')
-        if agent is not None: require(agent.startswith('/tmp/ssh-') or agent.startswith('/run/user/1000/'))
-        agent_pid=os.environ.get('SSH_AGENT_PID')
-        if agent_pid is not None: require(agent_pid.isdigit() and len(agent_pid)<=10)
-        runtime_dir=os.environ.get('XDG_RUNTIME_DIR')
-        if runtime_dir is not None: require(runtime_dir=='/run/user/1000')
-        session_id=os.environ.get('XDG_SESSION_ID')
-        if session_id is not None: require(len(session_id)<=32 and re.fullmatch(r'[A-Za-z0-9_-]+',session_id))
-    except Refused:
-        raise StageFailure('ssh_environment',detail)
+    # Incidental PAM/SSH variables are not part of the trust boundary. Reject
+    # only variables that can alter loading/interpreter/shell behavior; all
+    # child work immediately receives CLEAN and absolute executable paths.
+    rejected_exact={'LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME',
+                    'PYTHONSTARTUP','BASH_ENV','ENV','CDPATH','IFS','SHELLOPTS',
+                    'BASHOPTS','PROMPT_COMMAND','PERL5OPT','RUBYOPT','NODE_OPTIONS',
+                    'GIT_CONFIG','GIT_CONFIG_GLOBAL','GIT_CONFIG_SYSTEM',
+                    'SSH_ORIGINAL_COMMAND','DISPLAY','WAYLAND_DISPLAY','TMUX','STY'}
+    rejected_prefixes=('LD_','PYTHON','DYLD_')
+    for key,value in os.environ.items():
+        require(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is not None)
+        require(key not in rejected_exact and not key.startswith(rejected_prefixes))
+        require(len(value)<=256 and '\x00' not in value and '\n' not in value)
+    for key in ('LANG','LC_ALL','TERM'):
+        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
+    for key,value in {'HOME':'/root','USER':'root','LOGNAME':'root','MAIL':'/var/mail/root'}.items():
+        require(key not in os.environ or os.environ[key]==value)
+    require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
+    require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
+    agent=os.environ.get('SSH_AUTH_SOCK')
+    if agent is not None: require(agent.startswith('/tmp/ssh-') or agent.startswith('/run/user/1000/'))
+    agent_pid=os.environ.get('SSH_AGENT_PID')
+    if agent_pid is not None: require(agent_pid.isdigit() and len(agent_pid)<=10)
+    runtime_dir=os.environ.get('XDG_RUNTIME_DIR')
+    if runtime_dir is not None: require(runtime_dir=='/run/user/1000')
 
 
 def _session_properties(session):
