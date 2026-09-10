@@ -1,5 +1,7 @@
 """Unprivileged synthetic terminal/filesystem tests. Never real credentials."""
 import ast
+import contextlib
+import io
 import hashlib
 import importlib.util
 import inspect
@@ -244,6 +246,20 @@ class Installation(unittest.TestCase):
                 patch.object(I.sys,'argv',['installer','--rollback-upgrade']):
                     self.assertEqual(I.rollback_upgrade(),'rolled_back_previous_version')
             self.assertTrue(all(path.read_bytes()==old for path in targets));self.assertTrue(all(not path.exists() for path in backups))
+    def test_upgrade_reports_bounded_failure_stage(self):
+        output=io.StringIO()
+        with patch.object(I,"install",side_effect=I.StageFailure("backup_creation")),contextlib.redirect_stdout(output):
+            self.assertEqual(I.main(),1)
+        result=json.loads(output.getvalue())
+        self.assertEqual(result["failure_stage"],"backup_creation")
+        self.assertEqual(set(result)-{"mode","state","credentials_entered","connected","failure_stage"},set())
+        self.assertNotIn("PRIVATE_DETAIL",output.getvalue())
+
+    def test_upgrade_phase_maps_unexpected_error_to_fixed_stage(self):
+        with patch.object(I,"validate",side_effect=RuntimeError("PRIVATE_DETAIL")),patch.object(I.os,"getuid",return_value=0),patch.object(I.sys,"argv",["installer","--upgrade"]):
+            with self.assertRaises(I.StageFailure) as failure: I.upgrade()
+        self.assertEqual(failure.exception.stage,"precheck")
+
     def test_upgrade_refuses_changed_old_artifact_before_backup(self):
         with tempfile.TemporaryDirectory(prefix='ai-invest-upgrade-refuse-') as tmp:
             root=Path(tmp);lib=root/'lib';lib.mkdir(mode=0o700);target=root/'command';target.write_bytes(b'CHANGED')

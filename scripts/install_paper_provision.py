@@ -29,6 +29,26 @@ DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),
  (LIB/'operator_preflight.py','e3f5e14813b66a216b84c23e9261d3c888a5eacd41a626a8250eba11d435a91c'),
 )
+FAILURE_STAGES=frozenset(('precheck','old_artifact_validation','new_source_validation',
+                          'candidate_policy_validation','backup_creation','replacement',
+                          'aggregate_sudo_validation','new_artifact_validation','rollback'))
+
+
+class StageFailure(RuntimeError):
+    """Sanitized installer failure; never carries host/exception details."""
+    def __init__(self,stage):
+        if stage not in FAILURE_STAGES: stage='precheck'
+        self.stage=stage
+        super().__init__(stage)
+
+
+def phase(stage, operation):
+    try:
+        return operation()
+    except StageFailure:
+        raise
+    except BaseException:
+        raise StageFailure(stage)
 
 
 def require(value):
@@ -79,33 +99,48 @@ def replace_file(path,data,mode):
 
 
 def upgrade():
-    require(os.getuid()==0 and sys.argv[1:]==['--upgrade'])
-    validate()
-    for path,digest in DEPENDENCIES: read(path,digest)
-    require(stat.S_IMODE(LIB.stat().st_mode)==0o700)
+    phase('precheck',lambda: (require(os.getuid()==0 and sys.argv[1:]==['--upgrade']),
+                              validate(),
+                              [read(path,digest) for path,digest in DEPENDENCIES],
+                              require(stat.S_IMODE(LIB.stat().st_mode)==0o700)))
     old=[];new=[];backups=[]
-    for (source,target,mode,digest),(old_target,old_mode,old_digest) in zip(FILES,OLD_FILES):
-        require(target==old_target and mode==old_mode and not target.is_symlink())
-        old.append(artifact(target,old_digest,old_mode))
-        backup=backup_path(target);require(not backup.exists() and not backup.is_symlink())
-        data=read(ROOT/source,digest,True);new.append((data,mode,digest));backups.append(backup)
+    def inspect_old():
+        for (source,target,mode,digest),(old_target,old_mode,old_digest) in zip(FILES,OLD_FILES):
+            require(target==old_target and mode==old_mode and not target.is_symlink())
+            old.append(artifact(target,old_digest,old_mode))
+            backup=backup_path(target);require(not backup.exists() and not backup.is_symlink())
+            backups.append(backup)
+    phase('old_artifact_validation',inspect_old)
+    def inspect_new():
+        for source,target,mode,digest in FILES:
+            new.append((read(ROOT/source,digest,True),mode,digest))
+    phase('new_source_validation',inspect_new)
     with tempfile.TemporaryDirectory(prefix='paper-provision-upgrade-',dir=LIB) as directory:
-        work=Path(directory);candidate=work/'policy';write(candidate,new[-1][0],0o440);validate(candidate)
-        aggregate=work/'aggregate';write(aggregate,('@include /etc/sudoers\n@include '+str(candidate)+'\n').encode(),0o600);validate(aggregate)
+        work=Path(directory);candidate=work/'policy'
+        phase('candidate_policy_validation',lambda: (write(candidate,new[-1][0],0o440),validate(candidate)))
+        aggregate=work/'aggregate'
+        phase('aggregate_sudo_validation',lambda: (write(aggregate,('@include /etc/sudoers\n@include '+str(candidate)+'\n').encode(),0o600),validate(aggregate)))
     made=[]
-    try:
+    def make_backups():
         for (source,target,mode,digest),backup,data in zip(FILES,backups,new):
             os.link(target,backup,follow_symlinks=False);sync_parent(backup)
             require(backup.lstat().st_nlink==2);made.append(backup)
-        for (_,target,mode,digest), (data,_,_) in zip(FILES,new): replace_file(target,data,mode)
-        validate()
-        for (_,target,mode,digest), (data,_,_) in zip(FILES,new): artifact(target,digest,mode)
-    except BaseException:
+    def restore():
         for (source,target,mode,digest),backup,original in zip(FILES,backups,old):
             if backup.exists() and target.exists(): replace_file(target,original,mode)
         for backup in made:
             if backup.exists(): backup.unlink();sync_parent(backup)
-        validate();raise
+    try:
+        phase('backup_creation',make_backups)
+        phase('replacement',lambda: [replace_file(target,data,mode) for (_,target,mode,digest),(data,_,_) in zip(FILES,new)])
+        phase('aggregate_sudo_validation',validate)
+        phase('new_artifact_validation',lambda: [artifact(target,digest,mode) for (_,target,mode,digest),(data,_,_) in zip(FILES,new)])
+    except StageFailure:
+        phase('rollback',restore)
+        raise
+    except BaseException:
+        phase('rollback',restore)
+        raise StageFailure('replacement')
     return 'upgraded_not_provisioned'
 
 
@@ -193,8 +228,11 @@ def install():
 
 def main():
     try: state=install();status=0
-    except BaseException: state='refused_or_incomplete';status=1
-    print(json.dumps({'mode':'paper-provision-install','state':state,'credentials_entered':False,'connected':False},separators=(',',':')))
+    except StageFailure as caught: failure_stage=caught.stage;state='refused_or_incomplete';status=1
+    except BaseException: failure_stage='precheck';state='refused_or_incomplete';status=1
+    result={'mode':'paper-provision-install','state':state,'credentials_entered':False,'connected':False}
+    if status: result['failure_stage']=failure_stage
+    print(json.dumps(result,separators=(',',':')))
     return status
 
 
