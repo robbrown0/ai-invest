@@ -115,6 +115,9 @@ class Boundaries(unittest.TestCase):
         with patch.dict(P.os.environ,safe,clear=True): P.require_ssh_environment()
         with patch.dict(P.os.environ,dict(safe,SSH_AUTH_SOCK='/run/user/1000/agent.sock'),clear=True): P.require_ssh_environment()
         with patch.dict(P.os.environ,dict(safe,LC_TIME='C',LC_MONETARY='C'),clear=True): P.require_ssh_environment()
+        with patch.dict(P.os.environ,dict(safe,SSH_ORIGINAL_COMMAND=''),clear=True): P.require_ssh_environment()
+        with patch.dict(P.os.environ,dict(safe,SSH_ORIGINAL_COMMAND='id'),clear=True):
+            with self.assertRaises(P.Refused): P.require_ssh_environment()
         with patch.dict(P.os.environ,dict(safe,LD_PRELOAD='bad'),clear=True):
             with self.assertRaises(P.Refused): P.require_ssh_environment()
         device=os.makedev(136,7); character=SimpleNamespace(st_mode=stat.S_IFCHR,st_rdev=device)
