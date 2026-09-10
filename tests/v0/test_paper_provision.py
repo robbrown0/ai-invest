@@ -285,6 +285,7 @@ class Installation(unittest.TestCase):
         self.assertEqual(versions['ssh-diagnostic-v3'][0][2],'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6')
         self.assertEqual(versions['ssh-session-v4'][0][2],'939c802cf6e0908858d504c383fcb6323be51dfa86db0f968710f162a21537fb')
         self.assertEqual(versions['ssh-session-v5'][0][2],'a65158bb67af7291e61d153d7ad90326af21945ddcef7f2c83f84565c60bd097')
+        self.assertEqual(versions['ssh-session-v8'][0][2],'44fa2a4ba8e0af3f9dbd6b684e8ab478d7afbc74c2f53cffc378299fc8894ea2')
 
     def test_sequential_upgrade_preserves_prior_rollback_sets(self):
         with tempfile.TemporaryDirectory(prefix='ai-invest-sequential-') as tmp:
