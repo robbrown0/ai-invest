@@ -214,7 +214,9 @@ def publish(directory,key,value):
 def worker(console,metadata,terminal,storage,mode):
     require(dict(os.environ)==CLEAN)
     if mode=='--ssh':
-        require_ssh_terminal({});require_ssh_session()
+        # Parent validated the SSH logind session before entering this scope.
+        # A systemd-run scope is not itself a logind session.
+        require_ssh_terminal({})
     else:
         console.require_console();console.require_console_session()
     console.require_host(scoped=True)

@@ -126,6 +126,10 @@ class Boundaries(unittest.TestCase):
             with self.assertRaises(P.Refused): P.require_ssh_terminal(dict(valid,SSH_TTY='/dev/pts/8'))
             with patch.object(P.os,'tcgetpgrp',return_value=P.os.getpgrp()+1):
                 with self.assertRaises(P.Refused): P.require_ssh_terminal(valid)
+    def test_ssh_scope_uses_parent_session_boundary(self):
+        self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
+        self.assertIn('require_ssh_session()',inspect.getsource(P.main))
+
     def test_ssh_logind_binds_tty_service_and_rejects_duplicates(self):
         keys=('Active','Remote','Type','Class','User','LockedHint','State','TTY','Service')
         good='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','LockedHint':'no','State':'active','TTY':'pts/7','Service':'sshd'}[key]) for key in keys])+'\n'

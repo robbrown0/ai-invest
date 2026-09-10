@@ -23,7 +23,7 @@ cd /home/rob/ai-invest &&
 test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
-printf '%s\n' '84a830e3fa788da894674356293df499f988d29b679b556aac7ace78377d861d  scripts/install_paper_provision.py' | sha256sum --check - &&
+printf '%s\n' '9183a01ba9133e45a16ff6b71336ba4cb755c02018330fc52ffc1346b6dae288  scripts/install_paper_provision.py' | sha256sum --check - &&
 sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --upgrade &&
 sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```
@@ -43,7 +43,7 @@ known-host checking or use a terminal/session recorder:
 sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```
 
-Enter the ordinary sudo password only at sudo's prompt. The protected helper
+Enter the ordinary sudo password only at sudo's prompt. The protected helper validates the SSH logind session before entering its bounded systemd scope; the scoped worker retains terminal and resource checks but does not repeat logind `show-session self` after systemd has moved it into a scope. The protected helper
 then asks for the literal disposable **PAPER-CHECK** with echo disabled. Only
 after that succeeds, enter the **Alpaca PAPER API key and secret** at its two
 hidden prompts. Never put them in a shell command, clipboard relay, browser
