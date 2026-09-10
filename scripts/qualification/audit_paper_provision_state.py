@@ -28,7 +28,7 @@ def file_check(path,expected,mode):
     m=meta(path); out={'path_key':path.name,'metadata':m,'expected_mode':oct(mode),'hash_match':False,'actual_hash_present':False}
     if m.get('regular') and not m.get('symlink') and m.get('size',0)<=65536:
         try:
-            data=path.read_bytes(); actual=hashlib.sha256(data).hexdigest(); out['actual_hash_present']=True; out['hash_match']=actual==expected
+            data=path.read_bytes(); actual=hashlib.sha256(data).hexdigest(); out['actual_hash_present']=True; out['actual_hash']=actual; out['hash_match']=actual==expected
         except Exception: pass
     out['expected_hash_present']=bool(expected); return out
 
@@ -44,7 +44,7 @@ def main():
     if marker['metadata'].get('regular') and not marker['metadata'].get('symlink'):
         try:
             obj=json.loads(MANIFEST.read_text()); marker['readable']=True
-            marker['json_shape']={'format':obj.get('format'),'version_type':type(obj.get('version')).__name__,'artifact_count':len(obj.get('artifacts',[])) if isinstance(obj.get('artifacts'),list) else -1}
+            marker['json_shape']={'format':obj.get('format'),'version_type':type(obj.get('version')).__name__,'version':obj.get('version') if isinstance(obj.get('version'),str) and len(obj.get('version'))<=64 else None,'artifact_count':len(obj.get('artifacts',[])) if isinstance(obj.get('artifacts'),list) else -1}
         except Exception: marker['json_shape']='invalid_or_unreadable'
     print(json.dumps({'audit':'ai-invest-paper-provision-state-v1','read_only':True,'credentials_accessed':False,'current_artifacts':artifacts,'manifest':marker,'rollback_candidates':backups,'known_version_count':len(VERSIONS)},sort_keys=True,separators=(',',':')))
 if __name__=='__main__': main()
