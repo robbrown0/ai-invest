@@ -72,7 +72,7 @@ def scope_command(mode):
         '/usr/bin/unshare','--mount','--propagation','private','/usr/bin/python3','-I','-B',str(INSTALLED),*worker_args]
 
 
-def require_ssh_terminal(environment):
+def _require_ssh_terminal(environment):
     names=[]
     for fd in (0,1,2):
         require(os.isatty(fd)); names.append(os.ttyname(fd))
@@ -93,7 +93,17 @@ def require_ssh_terminal(environment):
     require(terminal==os.fstat(0).st_rdev and os.tcgetpgrp(0)==os.getpgrp())
 
 
-ENV_DETAILS=('environment_key_name','environment_rejected_exact','environment_rejected_prefix','environment_value_shape')
+TERM_DETAILS=('terminal_validation',)
+def require_ssh_terminal(environment):
+    try:
+        return _require_ssh_terminal(environment)
+    except StageFailure:
+        raise
+    except Refused:
+        raise StageFailure('ssh_terminal','terminal_validation')
+
+
+ENV_DETAILS=('environment_key_name','environment_rejected_exact','environment_rejected_prefix','environment_value_shape')+TERM_DETAILS
 def require_ssh_environment():
     rejected_exact={'LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME',
                     'PYTHONSTARTUP','BASH_ENV','ENV','CDPATH','IFS','SHELLOPTS',
