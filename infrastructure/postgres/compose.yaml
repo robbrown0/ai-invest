@@ -1,0 +1,60 @@
+# Candidate only: initialization/start require host mount and runtime validation.
+name: ai-invest
+services:
+  postgres:
+    image: percona/percona-distribution-postgresql@sha256:d37e949abdbb4f8b1e0ea2cb6961dd70dcba13738c05142978f616da835a79a8
+    profiles: [manual-database]
+    user: '26:26'
+    entrypoint: [/usr/pgsql-17/bin/postgres]
+    command: [-D, /pgdata, -c, config_file=/etc/ai-invest/postgresql.conf]
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 1
+    pids_limit: 64
+    shm_size: 128m
+    ulimits:
+      core: {soft: 0, hard: 0}
+    restart: 'no'
+    stop_grace_period: 60s
+    logging: {driver: none}
+    tmpfs:
+      - /backrestrepo:ro,size=1m
+      - /data/db:ro,size=1m
+      - /pgconf:ro,size=1m
+      - /pgwal:ro,size=1m
+      - /sshd:ro,size=1m
+    volumes:
+      - type: bind
+        source: /srv/ai-invest-secure/postgresql/data
+        target: /pgdata
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/tde-keys
+        target: /var/lib/ai-invest-keys
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-socket
+        target: /var/run/postgresql
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-tmp
+        target: /tmp
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-logs
+        target: /var/log/ai-invest-postgres
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./postgresql.conf
+        target: /etc/ai-invest/postgresql.conf
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ./pg_hba.conf
+        target: /etc/ai-invest/pg_hba.conf
+        read_only: true
+        bind: {create_host_path: false}
