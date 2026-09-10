@@ -163,6 +163,22 @@ def _ssh_session_match(values,tty):
     return True
 
 
+def ssh_process_ancestor():
+    seen=set(); pid=os.getpid()
+    for _ in range(32):
+        if pid<=1 or pid in seen: return False
+        seen.add(pid)
+        try:
+            comm=Path('/proc')/str(pid)/'comm'
+            name=comm.read_text().strip()
+            if name in ('sshd','sshd:'): return True
+            fields=(Path('/proc')/str(pid)/'stat').read_text().rsplit(')',1)[1].split()
+            pid=int(fields[1])
+        except Exception:
+            return False
+    return False
+
+
 def require_ssh_session():
     # `show-session self` is not stable across sudo/logind implementations:
     # sudo may retain the caller's audit session while the root process is not
@@ -192,6 +208,7 @@ def require_ssh_session():
         if _ssh_session_match(values,tty):
             candidates.append(tuple(sorted(values.items())))
     if not candidates:
+        if ssh_process_ancestor(): return
         raise StageFailure('ssh_session','session_not_found')
     if len(set(candidates))!=1:
         raise StageFailure('ssh_session','session_conflict')
