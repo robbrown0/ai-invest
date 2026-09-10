@@ -165,7 +165,7 @@ class Boundaries(unittest.TestCase):
     def test_ssh_logind_fallback_resolves_unique_remote_tty_session(self):
         direct=type('Result',(),{'returncode':1,'stderr':'','stdout':''})()
         listing=type('Result',(),{'returncode':0,'stderr':'','stdout':'42 1000 rob - pts/7 online\n'})()
-        shown='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','State':'online','TTY':'pts/7','Service':'sshd'}[key]) for key in ('Active','Remote','Type','Class','User','State','TTY','Service')])+'\n'
+        shown='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','State':'active','TTY':'pts/7','Service':'sshd'}[key]) for key in ('Active','Remote','Type','Class','User','State','TTY','Service')])+'\n'
         resolved=type('Result',(),{'returncode':0,'stderr':'','stdout':shown})()
         with patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',side_effect=(direct,listing,resolved)):
             P.require_ssh_session()

@@ -157,9 +157,10 @@ def _ssh_session_match(values,tty):
     required={'Remote':'yes','Type':'tty','Class':'user','User':'1000','TTY':tty.removeprefix('/dev/')}
     if any(values.get(key)!=value for key,value in required.items()): return False
     if values.get('Service') not in ('ssh','sshd'): return False
-    if values.get('State') not in ('active','online'): return False
-    active=values.get('Active')
-    return active in (None,'yes','no')
+    # The protected command must be attached to the currently active remote
+    # SSH session; stale/inactive sessions sharing a PTY are not sufficient.
+    if values.get('State')!='active' or values.get('Active')!='yes': return False
+    return True
 
 
 def require_ssh_session():
