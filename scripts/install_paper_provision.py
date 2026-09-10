@@ -90,8 +90,9 @@ def artifact(path,digest,mode):
     return data
 
 
-def backup_path(path):
-    return path.parent / ('.'+path.name+'.paper-provision.previous')
+def backup_path(path,version=None):
+    suffix='.paper-provision.previous' if version is None else '.paper-provision.previous.'+version
+    return path.parent / ('.'+path.name+suffix)
 
 
 def replace_file(path,data,mode):
@@ -105,6 +106,56 @@ def replace_file(path,data,mode):
         os.replace(temporary,path);sync_parent(path)
     finally:
         if temporary.exists(): temporary.unlink()
+
+
+def validate_existing_backups():
+    for _,target,_,_ in FILES:
+        known={backup_path(target)}|{backup_path(target,name) for name,_ in APPROVED_OLD_VERSIONS}
+        prefix='.'+target.name+'.paper-provision.previous'
+        for entry in target.parent.iterdir():
+            if entry.name.startswith(prefix): require(entry in known)
+        legacy=backup_path(target)
+        legacy_state=legacy.exists() or legacy.is_symlink()
+        require(all((backup_path(item[1]).exists() or backup_path(item[1]).is_symlink()) == legacy_state for item in FILES))
+    legacy=[backup_path(target) for _,target,_,_ in FILES]
+    if all(path.exists() and not path.is_symlink() for path in legacy):
+        matches=[]
+        for name,version_files in APPROVED_OLD_VERSIONS:
+            try:
+                for (target,mode,digest),backup in zip(version_files,legacy): artifact(backup,digest,mode)
+                matches.append(name)
+            except BaseException: pass
+        require(len(matches)==1)
+    for name,version_files in APPROVED_OLD_VERSIONS:
+        paths=[backup_path(target,name) for target,_,_ in version_files]
+        present=[path.exists() or path.is_symlink() for path in paths]
+        require(not any(present) or all(present))
+        if all(present):
+            for (target,mode,digest),path in zip(version_files,paths): artifact(path,digest,mode)
+
+
+def rollback_candidates():
+    for _,target,mode,digest in FILES: artifact(target,digest,mode)
+    versioned=[]
+    for name,version_files in APPROVED_OLD_VERSIONS:
+        paths=[backup_path(target,name) for target,_,_ in version_files]
+        present=[path.exists() or path.is_symlink() for path in paths]
+        require(not any(present) or all(present))
+        if all(present):
+            data=[]
+            for (target,mode,digest),path in zip(version_files,paths): data.append(artifact(path,digest,mode))
+            versioned.append((name,version_files,data,paths))
+    if versioned:
+        require(len(versioned)==1);return versioned[0]
+    legacy=[backup_path(target) for _,target,_,_ in FILES]
+    require(all(path.exists() and not path.is_symlink() for path in legacy))
+    matches=[]
+    for name,version_files in APPROVED_OLD_VERSIONS:
+        try:
+            data=[artifact(path,digest,mode) for (target,mode,digest),path in zip(version_files,legacy)]
+            matches.append((name,version_files,data,legacy))
+        except BaseException: pass
+    require(len(matches)==1);return matches[0]
 
 
 def replacement_aggregate(candidate):
@@ -145,6 +196,7 @@ def upgrade():
     old=[];new=[];backups=[];old_version=None
     def inspect_old():
         nonlocal old,backups,old_version
+        validate_existing_backups()
         matches=[]
         for version_name,version_files in APPROVED_OLD_VERSIONS:
             candidate_old=[];candidate_backups=[]
@@ -152,7 +204,7 @@ def upgrade():
                 for (source,target,mode,digest),(old_target,old_mode,old_digest) in zip(FILES,version_files):
                     require(target==old_target and mode==old_mode and not target.is_symlink())
                     candidate_old.append(artifact(target,old_digest,old_mode))
-                    backup=backup_path(target);require(not backup.exists() and not backup.is_symlink())
+                    backup=backup_path(target,version_name);require(not backup.exists() and not backup.is_symlink())
                     candidate_backups.append(backup)
                 matches.append((version_name,candidate_old,candidate_backups))
             except BaseException:
@@ -195,20 +247,8 @@ def upgrade():
 
 def rollback_upgrade():
     require(os.getuid()==0 and sys.argv[1:]==['--rollback-upgrade'])
-    validate();old=[];backups=[];matches=[]
-    for version_name,version_files in APPROVED_OLD_VERSIONS:
-        candidate_old=[];candidate_backups=[]
-        try:
-            for target,mode,digest in version_files:
-                backup=backup_path(target)
-                require(backup.exists() and not backup.is_symlink())
-                artifact(target,next(item[3] for item in FILES if item[1]==target),mode)
-                candidate_old.append(artifact(backup,digest,mode));candidate_backups.append(backup)
-            matches.append((version_name,version_files,candidate_old,candidate_backups))
-        except BaseException:
-            continue
-    require(len(matches)==1)
-    version_name,version_files,old,backups=matches[0]
+    validate()
+    version_name,version_files,old,backups=rollback_candidates()
     try:
         for (target,mode,digest),data in zip(version_files,old): replace_file(target,data,mode)
         validate()

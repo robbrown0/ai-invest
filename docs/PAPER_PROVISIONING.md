@@ -14,7 +14,7 @@ completion commit and [security review](reviews/PAPER_PROVISION_REVIEW.md). Do
 not run concurrent root configuration changes. The upgrade verifies the exact
 old helper/policy hashes, ownership, modes, link counts and non-symlink state;
 it stages the new fixed files, validates the candidate and a replacement-aware aggregate sudo configuration (the old policy is substituted exactly once),
-keeps exact rollback copies, and does not read or create credentials.
+keeps exact version-qualified rollback copies (while validating and preserving any prior legacy rollback set), and does not read or create credentials.
 
 From your own SSH terminal:
 
@@ -23,7 +23,7 @@ cd /home/rob/ai-invest &&
 test "$(git branch --show-current)" = phase3/synthetic-qualification &&
 test "$(git remote get-url origin)" = https://github.com/robbrown0/ai-invest.git &&
 test -z "$(git status --porcelain)" &&
-printf '%s\n' '5769b941092ac87f5dfb2c8ccf31f67874485acbe67027dd63faafef6ea2eebd  scripts/install_paper_provision.py' | sha256sum --check - &&
+printf '%s\n' 'ff45f6dcc985fdaf6b8497c06b2b5535d2ce469009613da08def703b75299eb8  scripts/install_paper_provision.py' | sha256sum --check - &&
 sudo /usr/bin/python3 -I -B /home/rob/ai-invest/scripts/install_paper_provision.py --upgrade &&
 sudo /usr/local/sbin/ai-invest-paper-provision --ssh
 ```

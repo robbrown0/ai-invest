@@ -258,7 +258,7 @@ class Installation(unittest.TestCase):
                 patch.object(I.sys,'argv',['installer','--upgrade']):
                     self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
             self.assertTrue(all(path.read_bytes()==new for path in targets))
-            backups=[I.backup_path(path) for path in targets]
+            backups=[I.backup_path(path,'fixture') for path in targets]
             self.assertTrue(all(path.exists() and path.read_bytes()==old for path in backups))
             with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),\
                 patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',old_files),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'PUBLIC_AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),\
@@ -270,6 +270,31 @@ class Installation(unittest.TestCase):
         versions=dict(I.APPROVED_OLD_VERSIONS)
         self.assertEqual(versions['ssh-v1'][0][2],'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659')
         self.assertEqual(versions['ssh-v1'][-1][2],'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e')
+
+    def test_sequential_upgrade_preserves_prior_rollback_sets(self):
+        with tempfile.TemporaryDirectory(prefix='ai-invest-sequential-') as tmp:
+            root=Path(tmp);lib=root/'lib';lib.mkdir(mode=0o700);policy=root/'sudoers';targets=(root/'command',lib/'terminal',lib/'storage',policy)
+            old=b'OLD';first=b'FIRST';second=b'SECOND';mode=0o600
+            for target in targets: target.write_bytes(old);target.chmod(mode)
+            def digest(data): return hashlib.sha256(data).hexdigest()
+            baseline=tuple((target,mode,digest(old)) for target in targets);first_version=tuple((target,mode,digest(first)) for target in targets)
+            sources=('one','two','three','four')
+            def run(files,approved,content):
+                for source in sources: (root/source).write_bytes(content);(root/source).chmod(mode)
+                def fake_artifact(path,expected,requested_mode):
+                    values={digest(old):old,digest(first):first,digest(second):second}
+                    if expected not in values: raise RuntimeError('wrong_digest')
+                    return values[expected]
+                def fake_replace(path,data,requested_mode):
+                    temp=path.parent/('.tmp-'+path.name);temp.write_bytes(data);temp.chmod(requested_mode);os.replace(temp,path)
+                with patch.object(I,'ROOT',root),patch.object(I,'LIB',lib),patch.object(I,'POLICY',policy),patch.object(I,'FILES',files),patch.object(I,'OLD_FILES',baseline),patch.object(I,'APPROVED_OLD_VERSIONS',approved),patch.object(I,'DEPENDENCIES',()),patch.object(I,'parents'),patch.object(I,'validate'),patch.object(I,'replacement_aggregate',return_value=b'AGGREGATE'),patch.object(I,'artifact',side_effect=fake_artifact),patch.object(I,'replace_file',side_effect=fake_replace),patch.object(I.os,'getuid',return_value=0),patch.object(I.sys,'argv',['installer','--upgrade']):
+                    self.assertEqual(I.upgrade(),'upgraded_not_provisioned')
+            first_files=tuple((source,target,mode,digest(first)) for source,target in zip(sources,targets));second_files=tuple((source,target,mode,digest(second)) for source,target in zip(sources,targets))
+            run(first_files,(('baseline',baseline),),first)
+            run(second_files,(('baseline',baseline),('ssh-v1',first_version)),second)
+            self.assertTrue(all(I.backup_path(target,'baseline').exists() for target in targets))
+            self.assertTrue(all(I.backup_path(target,'ssh-v1').exists() for target in targets))
+            self.assertTrue(all(target.read_bytes()==second for target in targets))
 
     def test_upgrade_reports_bounded_failure_stage(self):
         output=io.StringIO()
