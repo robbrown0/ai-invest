@@ -132,6 +132,11 @@ class Boundaries(unittest.TestCase):
             with self.assertRaises(P.Refused): P.require_ssh_terminal(dict(valid,SSH_TTY='/dev/pts/8'))
             with patch.object(P.os,'tcgetpgrp',return_value=P.os.getpgrp()+1):
                 with self.assertRaises(P.Refused): P.require_ssh_terminal(valid)
+    def test_terminal_unexpected_runtime_error_is_bounded(self):
+        with patch.object(P,'_require_ssh_terminal',side_effect=OSError('hidden')):
+            with self.assertRaises(P.StageFailure) as ctx: P.require_ssh_terminal({})
+        self.assertEqual((ctx.exception.stage,ctx.exception.detail),('ssh_terminal','terminal_validation'))
+        self.assertNotIn('hidden',str(ctx.exception))
     def test_ssh_scope_uses_parent_session_boundary(self):
         self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
         self.assertIn('phase("ssh_session",require_ssh_session)',inspect.getsource(P.main))

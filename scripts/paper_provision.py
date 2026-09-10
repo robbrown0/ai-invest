@@ -99,7 +99,7 @@ def require_ssh_terminal(environment):
         return _require_ssh_terminal(environment)
     except StageFailure:
         raise
-    except Refused:
+    except Exception:
         raise StageFailure('ssh_terminal','terminal_validation')
 
 
