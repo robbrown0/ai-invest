@@ -99,7 +99,7 @@ def require_ssh_environment():
     try:
         allowed=set(CLEAN)|{'TERM','HOME','USER','LOGNAME','SHELL','MAIL',
                             'SUDO_UID','SUDO_GID','SUDO_USER','SUDO_COMMAND',
-                            'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE','LANGUAGE'}
+                            'SSH_TTY','SSH_CONNECTION','SSH_CLIENT','SSH_AUTH_SOCK','SSH_AGENT_PID','XDG_RUNTIME_DIR','XDG_SESSION_ID','LC_CTYPE','LANGUAGE','PWD','SHLVL','_','COLORTERM','LS_COLORS','VTE_VERSION'}
         unknown=set(os.environ)-allowed
         detail='environment_keyset'
         for key in unknown:
@@ -112,6 +112,10 @@ def require_ssh_environment():
         detail='environment_locale'
         for key in ('LANG','LC_ALL','TERM'):
             require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
+        for key in ('PWD','COLORTERM','LS_COLORS','VTE_VERSION'):
+            if key in os.environ: require(len(os.environ[key])<=256 and '\n' not in os.environ[key])
+        if 'SHLVL' in os.environ: require(os.environ['SHLVL'].isdigit() and len(os.environ['SHLVL'])<=6)
+        if '_' in os.environ: require(len(os.environ['_'])<=256 and '\n' not in os.environ['_'])
         language=os.environ.get('LANGUAGE')
         if language is not None: require(re.fullmatch(r'[A-Za-z0-9_.@+-:]{0,64}',language) is not None)
         ctype=os.environ.get('LC_CTYPE')
