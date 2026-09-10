@@ -137,6 +137,10 @@ class Boundaries(unittest.TestCase):
             with self.assertRaises(P.StageFailure) as ctx: P.require_ssh_terminal({})
         self.assertEqual((ctx.exception.stage,ctx.exception.detail),('ssh_terminal','terminal_validation'))
         self.assertNotIn('hidden',str(ctx.exception))
+    def test_terminal_predicate_failure_is_symbolic(self):
+        with patch.object(P.os,'isatty',return_value=False):
+            with self.assertRaises(P.StageFailure) as ctx: P.require_ssh_terminal({})
+        self.assertEqual(ctx.exception.detail,'terminal_fd_not_tty')
     def test_ssh_scope_uses_parent_session_boundary(self):
         self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
         self.assertIn('phase("ssh_session",require_ssh_session)',inspect.getsource(P.main))

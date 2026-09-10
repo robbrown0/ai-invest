@@ -73,27 +73,40 @@ def scope_command(mode):
 
 
 def _require_ssh_terminal(environment):
+    def check(value, detail):
+        if not value:
+            raise StageFailure('ssh_terminal', detail)
     names=[]
     for fd in (0,1,2):
-        require(os.isatty(fd)); names.append(os.ttyname(fd))
+        check(os.isatty(fd), 'terminal_fd_not_tty')
+        names.append(os.ttyname(fd))
         info=os.fstat(fd); target=os.lstat(names[-1])
-        require(stat.S_ISCHR(target.st_mode) and info.st_rdev==target.st_rdev)
-        require(136 <= os.major(info.st_rdev) <= 143 and os.minor(info.st_rdev) >= 0)
-    require(len(set(names))==1 and (not environment.get('SSH_TTY') or names[0]==environment['SSH_TTY']))
-    require(names[0].startswith('/dev/pts/'))
+        check(stat.S_ISCHR(target.st_mode) and info.st_rdev==target.st_rdev, 'terminal_device_mismatch')
+        check(136 <= os.major(info.st_rdev) <= 143 and os.minor(info.st_rdev) >= 0, 'terminal_not_pts')
+    check(len(set(names))==1, 'terminal_fds_differ')
+    check(not environment.get('SSH_TTY') or names[0]==environment['SSH_TTY'], 'ssh_tty_mismatch')
+    check(names[0].startswith('/dev/pts/'), 'terminal_not_pts')
     if environment:
         forbidden=('DISPLAY','WAYLAND_DISPLAY','TMUX','STY','SSH_ORIGINAL_COMMAND')
-        require(not any(environment.get(key) for key in forbidden))
+        check(not any(environment.get(key) for key in forbidden), 'terminal_relay_detected')
         term=environment.get('TERM','')
-        require(not term.startswith(('screen','tmux')))
+        check(not term.startswith(('screen','tmux')), 'terminal_multiplexer')
         if environment.get('SSH_CONNECTION'):
             connection=environment['SSH_CONNECTION'].split()
-            require(len(connection)==4 and all(0<len(value)<=128 for value in connection))
-    terminal=int(Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[4])
-    require(terminal==os.fstat(0).st_rdev and os.tcgetpgrp(0)==os.getpgrp())
+            check(len(connection)==4 and all(0<len(value)<=128 for value in connection), 'ssh_connection_shape')
+    try:
+        terminal=int(Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[4])
+    except Exception:
+        raise StageFailure('ssh_terminal','terminal_proc_metadata')
+    check(terminal==os.fstat(0).st_rdev, 'terminal_proc_mismatch')
+    try:
+        foreground=os.tcgetpgrp(0)
+    except Exception:
+        raise StageFailure('ssh_terminal','terminal_foreground_query')
+    check(foreground==os.getpgrp(), 'terminal_not_foreground')
 
 
-TERM_DETAILS=('terminal_validation',)
+TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')
 def require_ssh_terminal(environment):
     try:
         return _require_ssh_terminal(environment)
