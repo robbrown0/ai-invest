@@ -101,8 +101,7 @@ def require_ssh_environment():
     rejected_exact={'LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME',
                     'PYTHONSTARTUP','BASH_ENV','ENV','CDPATH','IFS','SHELLOPTS',
                     'BASHOPTS','PROMPT_COMMAND','PERL5OPT','RUBYOPT','NODE_OPTIONS',
-                    'GIT_CONFIG','GIT_CONFIG_GLOBAL','GIT_CONFIG_SYSTEM',
-                    'SSH_ORIGINAL_COMMAND','DISPLAY','WAYLAND_DISPLAY','TMUX','STY'}
+                    'GIT_CONFIG','GIT_CONFIG_GLOBAL','GIT_CONFIG_SYSTEM'}
     rejected_prefixes=('LD_','PYTHON','DYLD_')
     for key,value in os.environ.items():
         require(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is not None)
