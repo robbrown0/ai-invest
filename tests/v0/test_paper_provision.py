@@ -141,6 +141,15 @@ class Boundaries(unittest.TestCase):
         with patch.object(P.os,'isatty',return_value=False):
             with self.assertRaises(P.StageFailure) as ctx: P.require_ssh_terminal({})
         self.assertEqual(ctx.exception.detail,'terminal_fd_not_tty')
+    def test_terminal_relay_marker_is_symbolic(self):
+        device=os.makedev(136,7); character=SimpleNamespace(st_mode=stat.S_IFCHR,st_rdev=device)
+        fixture=patch.object(P.os,'isatty',return_value=True),patch.object(P.os,'ttyname',return_value='/dev/pts/7'),\
+            patch.object(P.os,'fstat',return_value=character),patch.object(P.os,'lstat',return_value=character),\
+            patch.object(P.Path,'read_text',return_value=') S 0 0 0 '+str(device)),patch.object(P.os,'tcgetpgrp',return_value=P.os.getpgrp())
+        for key in ('DISPLAY','WAYLAND_DISPLAY','TMUX','STY','SSH_ORIGINAL_COMMAND'):
+            with self.subTest(key=key), fixture[0],fixture[1],fixture[2],fixture[3],fixture[4],fixture[5], self.assertRaises(P.StageFailure) as ctx:
+                P._require_ssh_terminal({key:'set'})
+            self.assertEqual(ctx.exception.detail,'terminal_relay_'+key.lower())
     def test_ssh_scope_uses_parent_session_boundary(self):
         self.assertNotIn('require_ssh_session()',inspect.getsource(P.worker))
         self.assertIn('phase("ssh_session",require_ssh_session)',inspect.getsource(P.main))

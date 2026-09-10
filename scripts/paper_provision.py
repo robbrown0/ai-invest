@@ -88,7 +88,9 @@ def _require_ssh_terminal(environment):
     check(names[0].startswith('/dev/pts/'), 'terminal_not_pts')
     if environment:
         forbidden=('DISPLAY','WAYLAND_DISPLAY','TMUX','STY','SSH_ORIGINAL_COMMAND')
-        check(not any(environment.get(key) for key in forbidden), 'terminal_relay_detected')
+        for key in forbidden:
+            if environment.get(key):
+                raise StageFailure('ssh_terminal','terminal_relay_'+key.lower())
         term=environment.get('TERM','')
         check(not term.startswith(('screen','tmux')), 'terminal_multiplexer')
         if environment.get('SSH_CONNECTION'):
@@ -106,7 +108,7 @@ def _require_ssh_terminal(environment):
     check(foreground==os.getpgrp(), 'terminal_not_foreground')
 
 
-TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')
+TERM_DETAILS=('terminal_fd_not_tty','terminal_device_mismatch','terminal_not_pts','terminal_fds_differ','ssh_tty_mismatch','terminal_relay_detected','terminal_relay_display','terminal_relay_wayland_display','terminal_relay_tmux','terminal_relay_sty','terminal_relay_ssh_original_command','terminal_multiplexer','ssh_connection_shape','terminal_proc_metadata','terminal_proc_mismatch','terminal_foreground_query','terminal_validation')
 def require_ssh_terminal(environment):
     try:
         return _require_ssh_terminal(environment)
