@@ -107,7 +107,7 @@ def require_ssh_environment():
             raise StageFailure('ssh_environment','environment_rejected_exact')
         if key.startswith(rejected_prefixes):
             raise StageFailure('ssh_environment','environment_rejected_prefix')
-        if len(value)>256 or '\x00' in value or '\n' in value:
+        if '\x00' in value or '\n' in value:
             raise StageFailure('ssh_environment','environment_value_shape')
 
 
