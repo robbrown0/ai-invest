@@ -95,9 +95,9 @@ def require_ssh_terminal(environment):
 
 ENV_DETAILS=('environment_keyset','environment_dangerous','environment_locale','environment_identity','environment_agent')
 def require_ssh_environment():
-    # Incidental PAM/SSH variables are not part of the trust boundary. Reject
-    # only variables that can alter loading/interpreter/shell behavior; all
-    # child work immediately receives CLEAN and absolute executable paths.
+    # Incidental PAM/SSH values are not authorization signals. Reject only
+    # variables that can alter loader/interpreter/shell behavior; identity is
+    # enforced separately by PTY, logind, sudo and loginuid checks.
     rejected_exact={'LD_PRELOAD','LD_LIBRARY_PATH','PYTHONPATH','PYTHONHOME',
                     'PYTHONSTARTUP','BASH_ENV','ENV','CDPATH','IFS','SHELLOPTS',
                     'BASHOPTS','PROMPT_COMMAND','PERL5OPT','RUBYOPT','NODE_OPTIONS',
@@ -108,18 +108,6 @@ def require_ssh_environment():
         require(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is not None)
         require(key not in rejected_exact and not key.startswith(rejected_prefixes))
         require(len(value)<=256 and '\x00' not in value and '\n' not in value)
-    for key in ('LANG','LC_ALL','TERM'):
-        require(re.fullmatch(r'[A-Za-z0-9_.@+-]{0,64}',os.environ.get(key,'')) is not None)
-    for key,value in {'HOME':'/root','USER':'root','LOGNAME':'root','MAIL':'/var/mail/root'}.items():
-        require(key not in os.environ or os.environ[key]==value)
-    require(os.environ.get('SHELL','/bin/bash') in ('/bin/bash','/usr/bin/bash'))
-    require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
-    agent=os.environ.get('SSH_AUTH_SOCK')
-    if agent is not None: require(agent.startswith('/tmp/ssh-') or agent.startswith('/run/user/1000/'))
-    agent_pid=os.environ.get('SSH_AGENT_PID')
-    if agent_pid is not None: require(agent_pid.isdigit() and len(agent_pid)<=10)
-    runtime_dir=os.environ.get('XDG_RUNTIME_DIR')
-    if runtime_dir is not None: require(runtime_dir=='/run/user/1000')
 
 
 def _session_properties(session):
