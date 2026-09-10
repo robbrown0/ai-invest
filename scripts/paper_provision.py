@@ -261,10 +261,9 @@ def worker(console,metadata,terminal,storage,mode):
                 with terminal.quiet_terminal(0,state):
                     prompt=b'PAPER-only protected setup. No recorder or real-money keys.\r\nType PAPER-CHECK to test hidden input, then Enter: '
                     phase("input_ready",lambda: (terminal.display(1,prompt,deadline),require(terminal.read_disposable(0,deadline)==b"PAPER-CHECK")))
-                    key=read_value(terminal,0,deadline)
+                    key=phase("input_ready",lambda: (terminal.display(1,b'\r\nAlpaca PAPER API key (hidden): ',deadline),read_value(terminal,0,deadline))[1])
                     runtime(metadata,group)
-                    terminal.display(1,b'\r\nAlpaca PAPER secret (hidden): ',deadline)
-                    value=read_value(terminal,0,deadline)
+                    value=phase("input_ready",lambda: (terminal.display(1,b'\r\nAlpaca PAPER secret (hidden): ',deadline),read_value(terminal,0,deadline))[1])
                     runtime(metadata,group)
                     publish(directory,key,value)
                 require(state.get('restored') is True)

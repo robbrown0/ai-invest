@@ -157,6 +157,12 @@ class Boundaries(unittest.TestCase):
     def test_ssh_session_is_bound_by_prior_terminal_and_sudo_checks(self):
         self.assertIsNone(P.require_ssh_session())
 
+    def test_worker_displays_both_credential_prompts_and_bounds_input_failures(self):
+        source=inspect.getsource(P.worker)
+        self.assertIn('Alpaca PAPER API key (hidden)',source)
+        self.assertIn('Alpaca PAPER secret (hidden)',source)
+        self.assertGreaterEqual(source.count('phase(\"input_ready\"'),3)
+
     def test_no_process_network_or_interpolation_after_input(self):
         source=inspect.getsource(P.worker)
         for node in ast.walk(ast.parse(source)):
@@ -293,7 +299,7 @@ class Installation(unittest.TestCase):
     def test_approved_ssh_predecessor_hashes_are_allowlisted(self):
         versions=dict(I.APPROVED_OLD_VERSIONS)
         self.assertNotIn(I.CURRENT_VERSION, versions)
-        self.assertEqual(I.CURRENT_VERSION,'ssh-session-v30')
+        self.assertEqual(I.CURRENT_VERSION,'ssh-session-v31')
         self.assertEqual(versions['ssh-v1'][0][2],'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659')
         self.assertEqual(versions['ssh-v1'][-1][2],'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e')
         self.assertEqual(versions['ssh-diagnostic-v3'][0][2],'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6')
