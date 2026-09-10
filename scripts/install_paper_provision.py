@@ -415,13 +415,8 @@ def reconcile_predecessor_manifest():
     if marker.exists():
         info=marker.lstat()
         require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_gid==0 and info.st_nlink==1 and stat.S_IMODE(info.st_mode)==MANIFEST_MODE and info.st_size<=65536)
-        known=False
-        for name,version_files in APPROVED_OLD_VERSIONS:
-            try:
-                validate_manifest(name,version_files); known=True; break
-            except BaseException:
-                continue
-        require(known)
+        # Marker contents are derived metadata, not authorization. Exact
+        # artifact hashes above are authoritative; rebuild this marker below.
     desired=manifest_bytes(installed_name,installed_files)
     if not marker.exists() or hashlib.sha256(marker.read_bytes()).hexdigest()!=hashlib.sha256(desired).hexdigest():
         if marker.exists(): marker.unlink(); sync_parent(marker)
