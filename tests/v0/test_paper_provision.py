@@ -278,6 +278,7 @@ class Installation(unittest.TestCase):
         versions=dict(I.APPROVED_OLD_VERSIONS)
         self.assertEqual(versions['ssh-v1'][0][2],'559a059870ff73e83afecd397d1dac32304d1aad1ec2d0b6555c40c6eaa53659')
         self.assertEqual(versions['ssh-v1'][-1][2],'8562e5d48f623825c5d707548b66a5e40918f8ba9f93877d258346e2523b866e')
+        self.assertEqual(versions['ssh-diagnostic-v3'][0][2],'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6')
 
     def test_sequential_upgrade_preserves_prior_rollback_sets(self):
         with tempfile.TemporaryDirectory(prefix='ai-invest-sequential-') as tmp:

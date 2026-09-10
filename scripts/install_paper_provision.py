@@ -40,7 +40,7 @@ SCOPE_OLD_FILES=(
  (POLICY,0o440,'ac4dfccb27bb4d7a274f4ab613792a116a4d0d9b7dcfeb1e5e123ec092281d70'),
 )
 DIAGNOSTIC_OLD_FILES=(
- (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'648da12550bf56f3e23430b41a084e9ca7c879ebc55d349c4ad9584b7fa05944'),
+ (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6'),
  (LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
