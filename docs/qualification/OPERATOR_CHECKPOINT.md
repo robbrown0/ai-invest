@@ -2,6 +2,8 @@
 
 ## Current direction: synthetic IO deferred
 
+The owner subsequently approved the separate [dedicated human-only storage initialization](../STORAGE_INITIALIZATION.md) needed for V0. That is the current operator action; it does not extend the old diagnostic/crash command or activate --io-test. Follow only that current procedure, not historical blocks below.
+
 The owner declined implementing/installing --io-test for now. Its candidate, tests and documentation remain preserved. Follow the [working V0 implementation direction](../V0_IMPLEMENTATION.md); no console action or IO-policy approval is requested. Both authorization flags remain false and Gate 2 NOT PASSED. Revisit this path only if genuinely needed for safe credential provisioning or later secret-infrastructure work.
 
 ## Deferred checkpoint: synthetic IO policy-scope approval

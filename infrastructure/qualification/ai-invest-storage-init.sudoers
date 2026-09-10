@@ -1,0 +1,9 @@
+# HOST-SPECIFIC HUMAN STORAGE INITIALIZATION ONLY. Not installed by the agent.
+# One exact reviewed command; existing operator policy and global PTY stay intact.
+Cmnd_Alias AI_INVEST_STORAGE_INIT = sha256:12e0b405ce7c9b1d935e5ba247c96ec71e25fe7ef8e6ed23a782f7589790d0ff /usr/local/sbin/ai-invest-storage-init --initialize
+Defaults!AI_INVEST_STORAGE_INIT !use_pty,authenticate,timestamp_timeout=0,!exempt_group
+Defaults!AI_INVEST_STORAGE_INIT env_reset,!env_keep,!env_check,!setenv,always_set_home,set_logname,secure_path="/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults!AI_INVEST_STORAGE_INIT closefrom=3,!closefrom_override,umask=0077,fdexec=never
+Defaults!AI_INVEST_STORAGE_INIT !log_input,!log_output,!log_stdin,!log_stdout,!log_stderr,!log_ttyin,!log_ttyout
+# Internal worker, arbitrary arguments/commands and no-argument invocation denied.
+#1000 ALL=(root:root) PASSWD: NOSETENV: AI_INVEST_STORAGE_INIT

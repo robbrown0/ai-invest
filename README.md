@@ -4,6 +4,8 @@ An experimental, multi-tenant, local-first AI-assisted investment research and p
 
 The owner has authorized development toward a working PAPER-only V0. A [runnable disconnected CLI](docs/RUN_V0.md) now exercises durable intents, deterministic risk, simulated submission, reconciliation and process-restart recovery. **Actual Alpaca PAPER connectivity is not yet runnable; Gate 2 remains NOT PASSED.** The synthetic --io-test command is deferred. See [foundation context](docs/V0_IMPLEMENTATION.md) and the CLI guide for concrete remaining database/credential blockers. Draft ADRs are not silently marked accepted.
 
+Current human checkpoint: [initialize the dedicated encrypted project storage](docs/STORAGE_INITIALIZATION.md) using the owner-approved fixed procedure. No OpenBao or brokerage provisioning is included.
+
 The goal is to test whether quantitative methods, local AI and optional frontier research improve risk-adjusted results after externally billed costs. No investment return or AI outperformance is promised. Initial experiments use $100–$300 simulated capital; PAPER is the only permitted external trading mode. BACKTEST/SHADOW do not submit orders, and no real-money functionality exists here.
 
 Proposed deployment is containerized services on the local bare-metal Ubuntu development host, with local PostgreSQL TDE/OpenBao and local inference. Primary financial storage stays local; NAS is optional encrypted archive. The target is approximately zero recurring external infrastructure cost.
