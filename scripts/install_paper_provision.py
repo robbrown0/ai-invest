@@ -16,7 +16,7 @@ SUDOERS=Path('/etc/sudoers')
 SUDOERS_DIR=Path('/etc/sudoers.d')
 CLEAN={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 FILES=(
- ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6'),
+ ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'939c802cf6e0908858d504c383fcb6323be51dfa86db0f968710f162a21537fb'),
  ('scripts/qualification/terminal_exchange.py',LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  ('scripts/setup_postgres_dirs.py',LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
@@ -40,13 +40,13 @@ SCOPE_OLD_FILES=(
  (POLICY,0o440,'ac4dfccb27bb4d7a274f4ab613792a116a4d0d9b7dcfeb1e5e123ec092281d70'),
 )
 DIAGNOSTIC_OLD_FILES=(
- (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'d5829e80d0b9fd4dca994e1ecfad3d524d3cff30074530c29955b2b5dabb8ab6'),
+ (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'648da12550bf56f3e23430b41a084e9ca7c879ebc55d349c4ad9584b7fa05944'),
  (LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
 )
 APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES))
-CURRENT_VERSION='ssh-diagnostic-v3'
+CURRENT_VERSION='ssh-session-v4'
 MANIFEST_MODE=0o400
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),

@@ -138,6 +138,14 @@ class Boundaries(unittest.TestCase):
         for altered in (good.replace('TTY=pts/7','TTY=pts/8'),good.replace('Service=sshd','Service=login'),good.replace('User=1000','User=1001'),good+'Remote=yes\n',good.replace('TTY=pts/7','TTY=bad')):
             with self.subTest(altered=altered[-20:]),patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',return_value=type('Result',(),{'returncode':0,'stderr':'','stdout':altered})()):
                 with self.assertRaises(P.Refused): P.require_ssh_session()
+    def test_ssh_logind_fallback_resolves_unique_remote_tty_session(self):
+        direct=type('Result',(),{'returncode':1,'stderr':'','stdout':''})()
+        listing=type('Result',(),{'returncode':0,'stderr':'','stdout':'42 1000 rob - pts/7 online\n'})()
+        shown='\n'.join([f'{key}='+({'Active':'yes','Remote':'yes','Type':'tty','Class':'user','User':'1000','State':'online','TTY':'pts/7','Service':'sshd'}[key]) for key in ('Active','Remote','Type','Class','User','State','TTY','Service')])+'\n'
+        resolved=type('Result',(),{'returncode':0,'stderr':'','stdout':shown})()
+        with patch.object(P.os,'ttyname',return_value='/dev/pts/7'),patch.object(P.subprocess,'run',side_effect=(direct,listing,resolved)):
+            P.require_ssh_session()
+
     def test_no_process_network_or_interpolation_after_input(self):
         source=inspect.getsource(P.worker)
         for node in ast.walk(ast.parse(source)):

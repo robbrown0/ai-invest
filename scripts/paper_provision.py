@@ -108,18 +108,52 @@ def require_ssh_environment():
     require(os.environ.get('SUDO_GID')==str(pwd.getpwuid(1000).pw_gid))
 
 
-def require_ssh_session():
-    expected={'Active':'yes','Remote':'yes','Type':'tty','Class':'user',
-              'User':'1000','LockedHint':'no','State':'active','TTY':os.ttyname(0).removeprefix('/dev/')}
-    command=['/usr/bin/loginctl','--no-pager','--no-ask-password','show-session','self']
-    command += ['--property='+key for key in (*expected,'Service')]
+def _session_properties(session):
+    command=['/usr/bin/loginctl','--no-pager','--no-ask-password','show-session',session,
+             '--property=Active','--property=Remote','--property=Type','--property=Class',
+             '--property=User','--property=State','--property=TTY','--property=Service']
     result=subprocess.run(command,env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
-    require(result.returncode==0 and not result.stderr and len(result.stdout)<=2048)
-    lines=result.stdout.splitlines()
-    require(len(lines)==len(expected)+1 and len({line.split('=',1)[0] for line in lines})==len(lines))
-    values=dict(line.split('=',1) for line in lines)
-    require(values.get('Service') in ('ssh','sshd'))
-    require({key:values.get(key) for key in expected}==expected)
+    if result.returncode!=0 or result.stderr or len(result.stdout)>2048: return None
+    values={}
+    for line in result.stdout.splitlines():
+        if '=' not in line: return None
+        key,value=line.split('=',1)
+        if key not in {'Active','Remote','Type','Class','User','State','TTY','Service','LockedHint'} or key in values: return None
+        if len(value)>128: return None
+        values[key]=value
+    return values
+
+
+def _ssh_session_match(values,tty):
+    if not values: return False
+    required={'Remote':'yes','Type':'tty','Class':'user','User':'1000','TTY':tty.removeprefix('/dev/')}
+    if any(values.get(key)!=value for key,value in required.items()): return False
+    if values.get('Service') not in ('ssh','sshd'): return False
+    if values.get('State') not in ('active','online'): return False
+    active=values.get('Active')
+    return active in (None,'yes','no')
+
+
+def require_ssh_session():
+    # `show-session self` is not stable across sudo/logind implementations:
+    # sudo may retain the caller's audit session while the root process is not
+    # itself addressable as a logind session.  Prefer it, then resolve the
+    # unique session owning this PTY from bounded logind metadata.
+    tty=os.ttyname(0)
+    direct=_session_properties('self')
+    if _ssh_session_match(direct,tty): return
+    result=subprocess.run(['/usr/bin/loginctl','--no-pager','--no-ask-password','list-sessions','--no-legend'],
+                          env=CLEAN,capture_output=True,text=True,timeout=10,check=False,close_fds=True)
+    require(result.returncode==0 and not result.stderr and len(result.stdout)<=4096)
+    candidates=[]
+    for line in result.stdout.splitlines():
+        fields=line.split()
+        require(2<=len(fields)<=6 and len(fields[0])<=32)
+        session=fields[0]
+        if session in ('self','') or not re.fullmatch(r'[0-9]+',session): continue
+        values=_session_properties(session)
+        if _ssh_session_match(values,tty): candidates.append(session)
+    require(len(candidates)==1)
 
 
 def ssh_metadata_ok(snapshot):
