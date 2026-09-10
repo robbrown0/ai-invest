@@ -106,7 +106,9 @@ def require_ssh_environment():
     rejected_prefixes=('LD_','PYTHON','DYLD_')
     for key,value in os.environ.items():
         require(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*',key) is not None)
-        require(key not in rejected_exact and not key.startswith(rejected_prefixes))
+        if key in rejected_exact:
+            require(key=='SSH_ORIGINAL_COMMAND' and value=='')
+        require(not key.startswith(rejected_prefixes))
         require(len(value)<=256 and '\x00' not in value and '\n' not in value)
 
 
