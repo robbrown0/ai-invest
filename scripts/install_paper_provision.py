@@ -16,7 +16,7 @@ SUDOERS=Path('/etc/sudoers')
 SUDOERS_DIR=Path('/etc/sudoers.d')
 CLEAN={'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 FILES=(
- ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'a65158bb67af7291e61d153d7ad90326af21945ddcef7f2c83f84565c60bd097'),
+ ('scripts/paper_provision.py',Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'e5158d558a4c0b1162665ee671f83cb5c487976a56a0d79f923b4bce1c49b34b'),
  ('scripts/qualification/terminal_exchange.py',LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
  ('scripts/setup_postgres_dirs.py',LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  ('infrastructure/web/ai-invest-paper-provision.sudoers',POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
@@ -51,8 +51,14 @@ SESSION_OLD_FILES=(
  (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
  (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
 )
-APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES),('ssh-session-v4',SESSION_OLD_FILES))
-CURRENT_VERSION='ssh-session-v5'
+SESSION_V5_OLD_FILES=(
+ (Path('/usr/local/sbin/ai-invest-paper-provision'),0o755,'a65158bb67af7291e61d153d7ad90326af21945ddcef7f2c83f84565c60bd097'),
+ (LIB/'paper-terminal.py',0o644,'cc065a0790e18eadc62038effb79c66f7990cdd121da6a8c2930b51975f1cf04'),
+ (LIB/'paper-storage.py',0o644,'e9a0bd4e7d6405f4df79ca45f1982d01b8c500a21808195d7632729f02009706'),
+ (POLICY,0o440,'84c3bdd92fe2582122871c031e970b37ef8ab6c0c11175a66d91f575c6258cc0'),
+)
+APPROVED_OLD_VERSIONS=(('physical-console-v1',OLD_FILES),('ssh-v1',SSH_OLD_FILES),('ssh-scope-v2',SCOPE_OLD_FILES),('ssh-diagnostic-v3',DIAGNOSTIC_OLD_FILES),('ssh-session-v4',SESSION_OLD_FILES),('ssh-session-v5',SESSION_V5_OLD_FILES))
+CURRENT_VERSION='ssh-session-v6'
 MANIFEST_MODE=0o400
 DEPENDENCIES=(
  (Path('/usr/local/sbin/ai-invest-operator-preflight'),'17bca7540e9e27991b379568181969b9a63609c33a7183d7b6be76d07379f1e5'),
