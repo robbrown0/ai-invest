@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!build/
+!build/runtime_guard.so
+!build/guard_probe
+!bootstrap.py

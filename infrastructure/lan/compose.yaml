@@ -1,0 +1,50 @@
+name: ai-invest-lan
+services:
+  web:
+    image: ai-invest-lan:paper-v0
+    build: {context: ../.., dockerfile: infrastructure/lan/Dockerfile}
+    user: '10004:26'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 32
+    ulimits: {core: {soft: 0, hard: 0}}
+    logging: {driver: none}
+    restart: unless-stopped
+    environment:
+      AI_INVEST_LAN_ADDRESS: '${AI_INVEST_LAN_ADDRESS:?Set exact private IPv4 bind address}'
+    ports: ['${AI_INVEST_LAN_ADDRESS:?Set exact private IPv4 bind address}:8443:8080']
+    networks: [lan, research]
+    volumes:
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-socket
+        target: /var/run/postgresql
+        read_only: true
+        bind: {create_host_path: false}
+  research-model:
+    image: ghcr.io/ggml-org/llama.cpp@sha256:adcaa8dcf950de0a5c826e265d823b49d6426dec90b7c616e3ddbe6421e4dad2
+    user: '10005:10005'
+    command: ['--model','/models/qwen3.gguf','--alias','qwen3-0.6b-q8_0','--host','0.0.0.0','--port','8080','--ctx-size','2048','--parallel','1','--threads','1','--threads-batch','1','--n-predict','256','--no-warmup','--no-webui','--no-slots','--log-disable']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 2g
+    memswap_limit: 2g
+    cpus: 1
+    pids_limit: 32
+    ulimits: {core: {soft: 0, hard: 0}}
+    logging: {driver: none}
+    restart: unless-stopped
+    networks: [research]
+    volumes:
+      - type: bind
+        source: ../../data/models/Qwen3-0.6B-Q8_0.gguf
+        target: /models/qwen3.gguf
+        read_only: true
+        bind: {create_host_path: false}
+networks:
+  lan: {}
+  research: {internal: true}

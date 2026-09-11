@@ -1,8 +1,12 @@
 # ai-invest
 
+**Current UI:** the [HTTP LAN workspace](docs/LAN_V0.md) is running with live database/system status and local-model public-symbol research. Alpaca credential entry and trading are disabled over HTTP. No TLS/certificate setup is required for this no-secret milestone.
+
 An experimental, multi-tenant, local-first AI-assisted investment research and paper-trading project. The internal name may change.
 
-The repository contains design documents and bootstrap placeholders only. **Phase 2 is at Design Gate 1 review; implementation requires explicit product-owner approval.** All architecture decisions remain DRAFT.
+The owner has authorized development toward a working PAPER-only V0. A [runnable disconnected CLI](docs/RUN_V0.md) now exercises durable intents, deterministic risk, simulated submission, reconciliation and process-restart recovery. **Actual Alpaca PAPER connectivity is not yet runnable; Gate 2 remains NOT PASSED.** The synthetic --io-test command is deferred. See [foundation context](docs/V0_IMPLEMENTATION.md) and the CLI guide for concrete remaining database/credential blockers. Draft ADRs are not silently marked accepted.
+
+Current runnable milestone: [PostgreSQL-backed V0 CLI](docs/POSTGRES_RUNTIME.md), with deployed TDE/WAL encryption, tenant isolation and restart recovery. Normal onboarding is now **web-first**: [Connect Alpaca PAPER and dashboard](docs/WEB_PAPER.md) are implemented/tested, with the web migration deployed, but await private TLS/device setup before LAN launch and real credential entry. Actual PAPER execution remains unfinished; no OpenBao initialization occurred.
 
 The goal is to test whether quantitative methods, local AI and optional frontier research improve risk-adjusted results after externally billed costs. No investment return or AI outperformance is promised. Initial experiments use $100–$300 simulated capital; PAPER is the only permitted external trading mode. BACKTEST/SHADOW do not submit orders, and no real-money functionality exists here.
 

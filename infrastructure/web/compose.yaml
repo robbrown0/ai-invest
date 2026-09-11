@@ -1,0 +1,44 @@
+name: ai-invest-web
+services:
+  execution-web:
+    image: ai-invest-web:paper-v0
+    build:
+      context: ../..
+      dockerfile: infrastructure/web/Dockerfile
+    user: '10003:26'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1
+    pids_limit: 32
+    ulimits:
+      core: {soft: 0, hard: 0}
+    logging: {driver: none}
+    restart: 'no'
+    ports:
+      - '127.0.0.1:8443:8443'
+    networks: [paper-egress]
+    volumes:
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-socket
+        target: /var/run/postgresql
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/web-tls
+        target: /run/ai-invest/tls
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/web-policy
+        target: /run/ai-invest/policy
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/paper-credentials
+        target: /run/ai-invest/paper
+        bind: {create_host_path: false}
+networks:
+  paper-egress: {}

@@ -1,0 +1,30 @@
+name: ai-invest-paper-bootstrap
+services:
+  activate:
+    image: ai-invest-web:paper-v0
+    user: '10003:26'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1
+    pids_limit: 32
+    ulimits:
+      core: {soft: 0, hard: 0}
+    logging: {driver: none}
+    restart: 'no'
+    entrypoint: ['/usr/local/bin/python3', '-I', '-B', '/opt/ai-invest/scripts/paper_activate.py']
+    networks: [paper-egress]
+    volumes:
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-socket
+        target: /var/run/postgresql
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/paper-credentials
+        target: /run/ai-invest/paper
+        bind: {create_host_path: false}
+networks:
+  paper-egress: {}

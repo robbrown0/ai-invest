@@ -40,7 +40,7 @@ Arrows describe necessary flows, not blanket grants. Recipients authenticate cal
 
 | Principal | Permitted capability | Denied capability |
 | --- | --- | --- |
-| Browser | Authorized tenant APIs through TLS gateway | Database, secrets, brokerage credentials |
+| Browser | Authorized tenant APIs; owner-approved transient manual PAPER credential entry over direct TLS for initial provisioning/replacement | Database, stored-secret retrieval, credentials in persistent browser state or model context |
 | Control application | Membership, portfolios, projections, proposals | Brokerage secrets; creating risk approvals/fills |
 | Ingestion | Restricted public retrieval; quarantined evidence | Internal addresses, tenant database, execution, secrets |
 | Research orchestration | Approved projections, bounded inference, result staging | Broker/secret APIs, risk authority, arbitrary SQL |
@@ -100,7 +100,7 @@ Qualify a pinned supported Percona Server/pg_tde combination before sensitive da
 | Metadata/query spill | Dedicated encrypted local volume and encrypted swap; forced-spill inspection |
 | Logs/exports/jobs/evidence | Minimization plus encryption and independent access controls |
 | Sensitive identifiers/fields | Envelope encryption bound to tenant/entity/field |
-| Broker credentials | OpenBao storage; database secret references only |
+| Broker credentials | Future OpenBao; scoped private V0 protected local files on encrypted storage; database secret references only |
 | Backups/archives | Independent authenticated encryption, manifests, recovery custody |
 
 Reviewed pg_tde 2.2.2 excludes system tables/metadata and query spill files and lists Citus/TimescaleDB incompatibility. Encrypted temporary tables do not mean encrypted query spill. Volume encryption supplements, never replaces TDE. [Limitations](https://docs.percona.com/pg-tde/index/tde-limitations.html) Covered objects include encrypted tables, associated indexes/TOAST and separately configured WAL. [Scope](https://docs.percona.com/pg-tde/index/tde-encrypts.html)

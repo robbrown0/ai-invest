@@ -1,0 +1,26 @@
+name: ai-invest-app
+services:
+  cli:
+    image: ai-invest-app:pg-v0
+    build:
+      context: ../..
+      dockerfile: infrastructure/application/Dockerfile
+    user: '10001:26'
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 32
+    ulimits:
+      core: {soft: 0, hard: 0}
+    logging: {driver: none}
+    restart: 'no'
+    volumes:
+      - type: bind
+        source: /srv/ai-invest-secure/runtime/postgres-socket
+        target: /var/run/postgresql
+        read_only: true
+        bind: {create_host_path: false}

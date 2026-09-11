@@ -1,0 +1,95 @@
+# Phase 3 Qualification Gate 2 — Prerequisite Evidence
+
+## Current checkpoint after subsequent owner approval
+
+**Current owner direction: --io-test is deferred, not awaiting another approval request.** Preserve its candidate/tests/design and all prior artifacts. Prioritize the [working PAPER V0 implementation](../V0_IMPLEMENTATION.md); return to IO qualification only for a concrete safe-provisioning need or later secret-infrastructure work. No Gate 2 or real-secret authorization follows. The earlier checkpoint requests below remain historical, not the current coding work queue.
+
+## Historical progression — prior action requests superseded by current V0 direction
+
+Current milestone: the owner's **46ce2ac030b69c70cfbbf01c7b238289f205a134** protected trial completed finite journal/Apport/store/collector observation: 20 PASS, 8 scoped NOT_APPLICABLE, human_input_path and swap_bytes still NOT_TESTED. [Recorded success and synthetic IO candidate](INPUT_OUTPUT_QUALIFICATION.md), [independent review](INPUT_OUTPUT_REVIEW.md), and [the one exact-mode policy approval checkpoint](INPUT_OUTPUT_CHECKPOINT.md) supersede next-run instructions below. No additional console run or privileged installation is requested yet. Both flags remain false; Gate 2 NOT PASSED. Existing wrapper/observer/sudo policy and all prior artifacts remain unchanged.
+
+Current compatibility correction: the owner's **99dc9d518470bd54db81d6e6a4e26780947db511** trial confirmed a correctly typed same-boot pre-window record. [Bounded metadata-only traversal and native before/after evidence](TRAVERSAL_QUALIFICATION.md), [independent review](TRAVERSAL_REVIEW.md) and [the current guarded upgrade/run](TRAVERSAL_CHECKPOINT.md) supersede next-run instructions below. The same split-file fixture now detects its in-window positive; absence requires bounded EOF and final completeness checks. Both flags remain false; Gate 2 NOT PASSED. All earlier failures/results remain preserved.
+
+Current boot/time checkpoint: the owner-tested **24310834bf00b66273eb89c04cf88d41e8d97758** stopped at timestamp_boot/attribution_mismatch after passing setup/local/window/log/store checks. [Distinct boot/time predicates and native reproduction](BOOT_TIME_QUALIFICATION.md), [independent review](BOOT_TIME_REVIEW.md), and [one guarded next checkpoint](BOOT_TIME_CHECKPOINT.md) supersede next-run instructions below. The precise host condition remains unresolved; a reproduced v255 pre-window seek fallback remains fail-closed, not silently skipped. Both flags remain false and Gate 2 NOT PASSED. All earlier evidence remains historical.
+
+Current journal checkpoint: the owner-tested **55339d0a222d95f8b58cf373d1de14f4a51bea88** passed all setup/local checks, observation_window, apport_log and crash_store; journal and collector_retention remained NOT_TESTED. The separate empty metadata probe does not establish a cause. [Focused journal API evidence and fixed stage/reason reporting](JOURNAL_QUALIFICATION.md), [independent review](JOURNAL_REVIEW.md) and [one current guarded upgrade/run](JOURNAL_CHECKPOINT.md) supersede next-run instructions below. Root cause remains unresolved; 229 automated tests, including 11 isolated native-journal cases, pass. Both flags remain false; Gate 2 NOT PASSED. All following checkpoints are historical.
+
+Latest evidence/correction: the owner-tested observer at **531671a5e6e3bf8c7efc3bddb899c53d53cd1c27** left all five observer categories NOT_TESTED. Supplied root:syslog 0775 /var/log metadata proves a source policy mismatch, not the first exception or journal success. [Read-only log policy and fixed setup gate](LOG_SOURCE_QUALIFICATION.md), [independent review](LOG_SOURCE_REVIEW.md), and the [single current guarded checkpoint](LOG_SOURCE_CHECKPOINT.md) supersede the next-run instructions below. Required setup now precedes any new canary/crash. Both flags remain false; Gate 2 NOT PASSED. Earlier evidence is retained unchanged.
+
+Latest evidence: the owner ran one crash trial from **5975603575b6761fb44932b84dc1519676639584**. All 11 implemented local checks passed; zero failed; collector/leakage/input coverage remained incomplete. [Exact preserved result and finite coverage matrix](OBSERVATION_QUALIFICATION.md) distinguish this from complete assurance. The next [single guarded observation checkpoint](OBSERVATION_CHECKPOINT.md) is prepared, not run; [independent review](OBSERVATION_REVIEW.md) applies only to that non-secret scope. Both flags remain false. Gate 2 NOT PASSED. The earlier checkpoints below, including their then-unrun wording, are historical.
+
+Latest human evidence: the reviewed PATH-corrected physical-console diagnostic passed all its implemented metadata/control predicates, with both authorization flags false. [Exact result and limits](CRASH_QUALIFICATION.md) distinguish this success from unqualified actual crash/collector, leakage and future service protection. The next [human-only bounded crash trial](CRASH_CHECKPOINT.md) remains unrun; Gate 2 NOT PASSED. All paragraphs below are earlier checkpoints, preserved as history.
+
+The latest human-installed physical-console run passed the earlier TTY boundary and stopped at `operator_environment`. The **[bounded environment refinement](ENVIRONMENT_DIAGNOSTICS.md)** adds fixed subpredicate diagnostics without changing acceptance. The actual failed subpredicate remains unknown pending the next human-only upgrade/run. Prior statements below describe their historical checkpoints. No runtime swap/crash/secret-entry authorization follows from this progress.
+
+The owner has now confirmed physical `/dev/tty3` becoming `/dev/pts/3` through sudo, explaining the later `tty_identity` diagnostic. See [the trust-boundary correction](CONSOLE_TRUST_BOUNDARY.md) and [current human-only checkpoint](OPERATOR_CHECKPOINT.md). A digest-pinned, exact-command sudo exception is proposed, not installed by agents. Prior failures below are historical evidence, not rewritten successes. Actual replacement-path, no-swap, crash and canary qualification remain outstanding; both authorization flags stay false.
+
+### Previous diagnostic amendment (historical)
+
+The owner subsequently reported a physical-console run returning only ordinary `metadata_unavailable`, without project secret entry. The [bounded diagnostic amendment](OPERATOR_CHECKPOINT.md) preserves that failed evidence and ordinary behavior, adds fixed symbolic check identifiers, and requires a reviewed human-only upgrade. See [independent diagnostic review](DIAGNOSTIC_REVIEW.md). No cause is inferred from the generic result; Gate 2 remains NOT PASSED.
+
+The earlier [console-wrapper amendment](OPERATOR_CHECKPOINT.md) added a reviewed human-installable command and sanitized result publication, with [independent review](WRAPPER_REVIEW.md). At that historical handoff it had not been installed and no privileged runtime test had run. The earlier 17-test checkpoint below is also retained historically; subsequent reviews record the expanded suites and remaining limitations.
+
+Gate 2 remains **NOT PASSED**. The owner approved the dedicated local LUKS2 loopback direction, sole-owner custody and project-scoped protections. Assessment resumed with a read-only preflight and synthetic regression tests; actual storage creation and protected secret entry have NOT occurred. See the [approved prerequisite assessment](APPROVED_PREREQUISITES.md), [required non-secret human operator checkpoint](OPERATOR_CHECKPOINT.md) and [independent checkpoint review](OPERATOR_REVIEW.md).
+
+The original stop and its observations below are preserved as historical evidence. Their documentation-only/no-code and undecided-owner wording describe that earlier checkpoint, not the subsequent qualification tooling. QH-02/QH-03 remain unqualified; no dependent Gate 2 runtime result is claimed.
+
+## Historical prerequisite stop
+
+**Status:** NOT PASSED — blocked before service creation and implementation.
+**Observation date:** 2026-09-09 UTC (2026-09-08 local evening).
+**Branch:** `phase3/synthetic-qualification`.
+**Starting main commit:** `924aaceac9df3e72d79b7ceecc141b98b6c6222a`.
+**Purpose:** Record falsification evidence, not claim completion of Phase 3.
+
+## Authorization and stopping condition
+
+The human product owner approved Design Gate 1 and the Phase 3 synthetic qualification work order. Approval permits synthetic qualification and implementation only. It excludes broker connectivity for this phase, unattended brokerage trading, real brokerage credentials, real money, LIVE_LIMITED/LIVE, outside customers, public application exposure and commercial operation. The source repository remains public; application access remains private/LAN-only.
+
+The merged Phase 2 records retain their historical DRAFT/pre-approval wording. This record documents the subsequent limited human authorization without retrospectively accepting every ADR, risk threshold or unresolved custody decision.
+
+The work order requires stopping if an assumption fails. Read-only inventory did not demonstrate dedicated encrypted project storage or protection of future secret-bearing processes from active file-backed swap. The only observed encrypted mount belongs to an unrelated workload. No permission to reuse it is inferred. Dependent work stopped: no key generation, image downloads, service creation, application implementation, schema or simulator was attempted.
+
+This is NOT evidence that Percona TDE or OpenBao is defective. Their qualification has not run. It is evidence that this checkout is not yet an approved, demonstrably encrypted runtime location.
+
+## Evidence index
+
+- [Host inventory and sanitized observations](HOST_INVENTORY.md)
+- [Independent adversarial review](INDEPENDENT_REVIEW.md)
+- [Minimum owner decisions and resumption procedure](RESUMPTION_PLAN.md)
+
+## Gate matrix
+
+PASS applies only to the stated narrow check. NOT QUALIFIED means a prerequisite/control lacks required evidence; NOT RUN means no implementation test was executed.
+
+| ID | Qualification / expected result | Actual result | Status / regression reference |
+| --- | --- | --- | --- |
+| QH-01 | Read-only host inventory without disclosing secrets | CPU/RAM/GPU/filesystem/Docker/listener categories recorded; no credential or workload-config reads | PASS — HOST_INVENTORY |
+| QH-02 | Approved encrypted local runtime, spill and recovery storage | Project checkout resolves to ordinary ext4 partition; no crypt ancestor; no dedicated approved project encrypted location identified | NOT QUALIFIED — planned REG-HOST-01 |
+| QH-03 | Secret-bearing service/helper memory cannot reach unencrypted swap or core files | Active file swap on same filesystem; current shell core limit zero only; future service/helper controls untested | NOT QUALIFIED — planned REG-HOST-02 |
+| QH-04 | Docker/Compose available via local daemon | Versions and local Unix endpoint verified; read-only daemon calls succeed | PASS for availability only |
+| QH-05 | Non-root restricted containers, identities, no published ports and enforced resource/egress limits | No project containers or Compose baseline created after prerequisite stop | NOT RUN — planned REG-HOST-03 |
+| QH-06 | Acceptable workload resource usage and isolation | One transient snapshot only; existing workloads consume resources and have non-loopback listeners | NOT QUALIFIED — no soak, contention or reachability proof |
+| QT-01 | Exact Percona PostgreSQL/pg_tde pins; heap/index/TOAST/WAL and spill coverage | No candidate installed, pinned or tested | NOT RUN |
+| QT-02 | Encrypted backup, WAL replay, cold restore and restart | No test database or encrypted recovery environment created | NOT RUN |
+| QK-01 | OpenBao integration, TLS, principal-key rotation and retained old-backup keys | No OpenBao version installed or key material generated | NOT RUN |
+| QK-02 | Lost/wrong/unavailable key, seal, renewal and human recovery behavior | No secret bootstrap/custodian procedure established for this qualification | NOT RUN |
+| QD-01 | Synthetic schema, FORCE RLS and trusted context survive two-tenant attacks | No database/schema/access paths implemented | NOT RUN |
+| QF-01 | Immutable intent, single-use approval, reservations and idempotency | No simulator/risk/execution implementation | NOT RUN |
+| QF-02 | UNKNOWN/duplicate/partial-fill/stop-race/restart safety | No financial fault corpus executed | NOT RUN |
+| QS-01 | CI tests, SAST, dependency/secrets/container scans and documentation validation function | Existing GitHub repository controls inspected; local document/pattern checks only; no Phase 3 CI configured | NOT QUALIFIED |
+| QS-02 | No runtime secrets committed and no broker/live capability introduced | Documentation-only diff, unchanged bootstrap placeholders/settings, secret-pattern checks | PASS within inspected scope; not universal secret-detection proof |
+
+REG-HOST identifiers are future regression requirements, not existing tests or passing evidence. No implemented-code defect was discovered because no Phase 3 control was implemented. The observed infrastructure prerequisite failures remain open; documenting a future regression does not close them.
+
+## Qualification outcome
+
+### Documentation handoff checks
+
+Local checks parsed 46 Markdown files and verified 175 local file links. The 9 unchanged Mermaid blocks received declaration/fence checks only; no full Mermaid renderer result is claimed. Common-secret-pattern checks covered all 58 working-tree files, staged content and 79 pre-existing reachable history blobs, without printing matching values. These checks found no matches; they do not prove absence of every possible secret. No specialized secret scanner, SAST, dependency audit or container scan was executed in Phase 3.
+
+Final staging is restricted to the four Markdown files in this qualification directory. Whitespace/diff review and unchanged bootstrap/runtime files are checked before commit; branch push and draft/unmerged PR state are verified afterward. No runtime qualification result follows from these documentation checks.
+
+Gate 2 remains NOT PASSED. No TDE, recovery, RLS, financial-state-machine, security-pipeline or load result may be inferred from installed tooling or this documentation. No new software license, paid service, runtime secret, real brokerage connection, LIVE adapter or UI was added. Existing workloads, host swap/firewall/storage and Docker daemon configuration were not modified.
+
+The draft PR preserves this failed-prerequisite assessment for owner review; it is not a completed qualification or a request to approve Gate 2. Continue on this branch only after the owner supplies the scoped prerequisites in RESUMPTION_PLAN. Do not merge this PR automatically.
